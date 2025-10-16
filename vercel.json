@@ -1,21 +1,14 @@
 {
   "version": 2,
   "name": "konsul-chatbot",
-  "builds": [
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
-  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite",
   "routes": [
     {
       "src": "/(.*)",
       "dest": "/$1"
     }
-  ],
-  "functions": {
-    "src/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  ]
 }
