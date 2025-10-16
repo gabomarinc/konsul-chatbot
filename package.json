@@ -1,0 +1,37 @@
+{
+  "name": "chatbot-dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard web marca blanca para SaaS de chatbots AI",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "vite preview --port 3000",
+    "lint": "eslint . --ext js,html --fix",
+    "format": "prettier --write ."
+  },
+  "keywords": [
+    "chatbot",
+    "dashboard",
+    "saas",
+    "ai",
+    "whatsapp",
+    "instagram",
+    "marca-blanca"
+  ],
+  "author": "Tu Empresa",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "vite": "^5.1.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}

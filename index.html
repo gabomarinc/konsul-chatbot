@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Chatbot AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <img id="sidebarLogo" class="logo-img" src="https://konsul.digital/wp-content/uploads/2025/07/Logo-original-e1751717849441.png" alt="Konsul Digital">
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul class="nav-list">
+                    <li class="nav-item active" data-section="overview">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Resumen General</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-section="chats">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-comments"></i>
+                            <span>Chats</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-section="team">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-users"></i>
+                            <span>Equipo</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-section="agents">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-robot"></i>
+                            <span>Agentes IA</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-section="attendances">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-headset"></i>
+                            <span>Atendimientos</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-section="integrations">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-rocket"></i>
+                            <span>Mejoras</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="btn btn-outline" id="themeToggle">
+                    <i class="fas fa-moon"></i>
+                    <span>Tema</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-left">
+                    <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 id="pageTitle">Resumen General</h1>
+                </div>
+            <div class="header-right">
+                <div class="workspace-info" id="workspaceInfo" style="display: none;">
+                    <i class="fas fa-building"></i>
+                    <span id="workspaceName">Workspace</span>
+                </div>
+                <div class="credits-info" id="creditsInfo" style="display: none;">
+                    <i class="fas fa-coins"></i>
+                    <span id="creditsAmount">0</span>
+                    <span class="credits-label">créditos</span>
+                    <span class="credits-status" id="creditsStatus"></span>
+                </div>
+                <div class="notifications-bell" id="notificationsBell">
+                    <button class="bell-button" id="bellButton">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                    </button>
+                </div>
+                <div class="user-menu" id="userMenu">
+                    <div class="user-info" id="userInfo">
+                        <div class="user-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <span class="user-name" id="userName">Usuario</span>
+                        <i class="fas fa-chevron-down user-dropdown-arrow"></i>
+                    </div>
+                    
+                    <div class="user-dropdown" id="userDropdown" style="display: none;">
+                        <div class="dropdown-header">
+                            <div class="user-details">
+                                <div class="user-avatar-large">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div class="user-info-text">
+                                    <div class="user-full-name" id="userFullName">Usuario</div>
+                                    <div class="user-email" id="userEmail">usuario@ejemplo.com</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <div class="dropdown-menu">
+                            <a href="#" class="dropdown-item" data-action="profile">
+                                <i class="fas fa-user"></i>
+                                <span>Mi Perfil</span>
+                            </a>
+                            <a href="#" class="dropdown-item" data-action="billing">
+                                <i class="fas fa-credit-card"></i>
+                                <span>Facturación</span>
+                            </a>
+                            <a href="#" class="dropdown-item" data-action="tokens">
+                                <i class="fas fa-coins"></i>
+                                <span>Tokens Consumidos</span>
+                            </a>
+                        </div>
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <div class="dropdown-menu">
+                            <a href="#" class="dropdown-item" data-action="support">
+                                <i class="fas fa-life-ring"></i>
+                                <span>Soporte Técnico</span>
+                            </a>
+                            <a href="#" class="dropdown-item logout-item" data-action="logout">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Cerrar Sesión</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </header>
+
+            <div class="content">
+                <!-- Overview Section -->
+                <section class="content-section active" id="overview">
+                    <div class="section-header">
+                        <h2>Resumen General</h2>
+                        <div class="section-actions">
+                            <button class="btn btn-primary" id="syncDataBtn">
+                                <i class="fas fa-sync"></i>
+                                Sincronizar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="totalChats">0</h3>
+                                <p>Total de Chats</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="totalAgents">0</h3>
+                                <p>Agentes IA</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="totalUsers">0</h3>
+                                <p>Miembros del Equipo</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="totalTokens">0</h3>
+                                <p>Tokens Consumidos</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3>Conversaciones Iniciadas por Semana</h3>
+                                <div class="week-navigation">
+                                    <button class="week-nav-btn" id="prevWeekBtn" title="Semana anterior">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <span class="week-display" id="currentWeekDisplay">Semana actual</span>
+                                    <button class="week-nav-btn" id="nextWeekBtn" title="Semana siguiente">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="simple-chart" id="simpleChart">
+                                <div class="chart-loading">Cargando datos...</div>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Canales de Comunicación</h3>
+                            <div class="channels-list" id="channelsList">
+                                <div class="loading-message">Cargando canales...</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Chats Section -->
+                <section class="content-section" id="chats">
+                    <div class="section-header">
+                        <h2>Chats</h2>
+                        <div class="section-actions">
+                            <div class="filters">
+                                <select id="agentFilter" class="filter-select">
+                                    <option value="">Todos los Agentes</option>
+                                </select>
+                                <select id="channelFilter" class="filter-select">
+                                    <option value="">Todos los Canales</option>
+                                    <!-- Opciones dinámicas se cargan desde JavaScript -->
+                                </select>
+                                <input type="date" id="dateFilter" class="filter-input">
+                                <button id="refreshChatsBtn" class="btn btn-outline" title="Refrescar chats">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chats-container">
+                        <div class="chats-list" id="chatsList">
+                            <!-- Chats will be loaded here -->
+                        </div>
+                        <div class="chat-details" id="chatDetails">
+                            <div class="chat-welcome">
+                                <i class="fas fa-comments"></i>
+                                <h3>Selecciona un chat</h3>
+                                <p>Elige una conversación para ver los detalles</p>
+                            </div>
+                            <div class="chat-loading" id="chatLoading" style="display: none;">
+                                <div class="loading-spinner">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                </div>
+                                <h3>Cargando mensajes...</h3>
+                                <p>Obteniendo el historial completo del chat</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Team Section -->
+                <section class="content-section" id="team">
+                    <div class="section-header">
+                        <h2>
+                            <i class="fas fa-users"></i>
+                            Mi Equipo de Ventas
+                        </h2>
+                    </div>
+
+                    <div class="team-container">
+                        <!-- Info del equipo -->
+                        <div class="team-info-card">
+                            <div class="team-info-icon">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div class="team-info-content">
+                                <h3>¿Cómo funciona el equipo?</h3>
+                                <p>Invita hasta <strong>3 vendedores o agentes</strong> que recibirán notificaciones por correo cuando un cliente haya sido calificado por el chatbot. Ellos podrán trabajar estos leads directamente.</p>
+                            </div>
+                        </div>
+
+                        <!-- Estado del equipo -->
+                        <div class="team-status-card">
+                            <div class="team-status-header">
+                                <h3>
+                                    <i class="fas fa-chart-pie"></i>
+                                    Estado del Equipo
+                                </h3>
+                                <span class="team-count" id="teamCount">
+                                    <span id="currentMembersCount">0</span> / 3 miembros
+                                </span>
+                            </div>
+                            <div class="team-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="teamProgressFill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lista de miembros del equipo -->
+                        <div class="team-members-section">
+                            <div class="team-members-header">
+                                <h3>
+                                    <i class="fas fa-user-friends"></i>
+                                    Miembros del Equipo
+                                </h3>
+                                <button class="btn btn-primary" id="inviteMemberBtn" onclick="window.showTeamModal()">
+                                    <i class="fas fa-user-plus"></i>
+                                    Invitar Miembro
+                                </button>
+                            </div>
+
+                            <div class="team-members-list" id="teamMembersList">
+                                <!-- Los miembros se cargarán aquí dinámicamente -->
+                                <div class="empty-team-state">
+                                    <i class="fas fa-user-slash"></i>
+                                    <p>Aún no has invitado a ningún miembro</p>
+                                    <button class="btn btn-outline" onclick="document.getElementById('inviteMemberBtn').click()">
+                                        <i class="fas fa-user-plus"></i>
+                                        Invitar Primer Miembro
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Profile Section -->
+                <section class="content-section" id="profile">
+                    <div class="section-header">
+                        <h2>Mi Perfil</h2>
+                        <div class="section-actions">
+                            <button class="btn btn-outline" id="logoutBtn">
+                                <i class="fas fa-sign-out-alt"></i>
+                                Cerrar Sesión
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="profile-container">
+                        <div class="profile-tabs">
+                            <button class="tab-btn active" data-tab="profile-info">
+                                <i class="fas fa-user"></i>
+                                Información Personal
+                            </button>
+                            <button class="tab-btn" data-tab="security">
+                                <i class="fas fa-shield-alt"></i>
+                                Seguridad
+                            </button>
+                            <button class="tab-btn" data-tab="billing">
+                                <i class="fas fa-credit-card"></i>
+                                Facturación
+                            </button>
+                        </div>
+
+                        <div class="profile-content">
+                            <!-- Profile Info Tab -->
+                            <div class="tab-content active" id="profile-info">
+                                <div class="profile-card">
+                                    <div class="profile-header">
+                                        <div class="profile-avatar">
+                                            <img id="profileAvatar" src="" alt="Avatar" style="display: none;">
+                                            <div class="avatar-placeholder" id="avatarPlaceholder">
+                                                <i class="fas fa-user"></i>
+                                            </div>
+                                        </div>
+                                        <div class="profile-info">
+                                            <h3 id="profileName">Cargando...</h3>
+                                            <p id="profileEmail">Cargando...</p>
+                                            <span class="profile-role" id="profileRole">Usuario</span>
+                                        </div>
+                                    </div>
+
+                                    <form id="profileForm" class="profile-form">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="firstName">Nombre</label>
+                                                <input type="text" id="firstName" name="firstName" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="lastName">Apellido</label>
+                                                <input type="text" id="lastName" name="lastName" required>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="email">Email</label>
+                                            <input type="email" id="email" name="email" required readonly disabled>
+                                            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                                                <i class="fas fa-lock"></i> El email no se puede modificar
+                                            </small>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="company">Empresa</label>
+                                            <input type="text" id="company" name="company">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save"></i>
+                                            Guardar Cambios
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <!-- Security Tab -->
+                            <div class="tab-content" id="security">
+                                <div class="security-card">
+                                    <h3>Cambiar Contraseña</h3>
+                                    <form id="passwordForm" class="password-form">
+                                        <div class="form-group">
+                                            <label for="currentPassword">Contraseña Actual</label>
+                                            <input type="password" id="currentPassword" name="currentPassword" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="newPassword">Nueva Contraseña</label>
+                                            <input type="password" id="newPassword" name="newPassword" required minlength="6">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="confirmPassword">Confirmar Nueva Contraseña</label>
+                                            <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-key"></i>
+                                            Cambiar Contraseña
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <!-- Billing Tab -->
+                            <div class="tab-content" id="billing">
+                                <div class="billing-container" id="billingContent">
+                                    <!-- Información del Cliente -->
+                                    <div id="customerInfoSection">
+                                        <div class="loading-message">Cargando información del cliente...</div>
+                                    </div>
+
+                                    <!-- Suscripciones -->
+                                    <div id="subscriptionsSection">
+                                        <div class="loading-message">Cargando suscripciones...</div>
+                                    </div>
+
+                                    <!-- Facturas -->
+                                    <div id="invoicesSection">
+                                        <div class="loading-message">Cargando facturas...</div>
+                                    </div>
+
+                                    <!-- Métodos de Pago -->
+                                    <div id="paymentMethodsSection">
+                                        <div class="loading-message">Cargando métodos de pago...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Agents Section -->
+                <section class="content-section" id="agents">
+                    <div class="section-header">
+                        <h2>Agentes IA</h2>
+                        <div class="section-actions">
+                            <button class="btn btn-outline" id="refreshCreditsBtn">
+                                <i class="fas fa-sync-alt"></i>
+                                Actualizar Créditos
+                            </button>
+                            <div class="filter-tabs">
+                                <button class="tab-btn active" data-filter="all">Todos</button>
+                                <button class="tab-btn" data-filter="active">Activos</button>
+                                <button class="tab-btn" data-filter="inactive">Inactivos</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="agents-grid" id="agentsGrid">
+                        <!-- Agents will be loaded here -->
+                    </div>
+                </section>
+
+                <!-- Attendances Section -->
+                <section class="content-section" id="attendances">
+                    <div class="section-header">
+                        <h2>Atendimientos</h2>
+                        <div class="section-actions">
+                            <button class="btn btn-outline" id="filterAttendancesBtn">
+                                <i class="fas fa-filter"></i>
+                                Filtrar
+                            </button>
+                            <button class="btn btn-primary" id="exportAttendancesBtn">
+                                <i class="fas fa-download"></i>
+                                Exportar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="attendances-table-container">
+                        <table class="attendances-table">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Canal</th>
+                                    <th>Estado</th>
+                                    <th>Agente</th>
+                                    <th>Inicio</th>
+                                    <th>Fin</th>
+                                    <th>Duración</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendancesList">
+                                <!-- Attendances will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Mejoras Section -->
+                <section class="content-section" id="integrations">
+                    <div class="section-header">
+                        <h2>
+                            <i class="fas fa-rocket"></i>
+                            Mejoras
+                        </h2>
+                    </div>
+
+                    <div class="improvements-container">
+                        <div class="improvements-intro">
+                            <div class="intro-icon">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <h3>Estamos trabajando para ti</h3>
+                            <p>Constantemente estamos desarrollando nuevos paquetes de mejoras que elevarán tu productividad y optimizarán tu experiencia con el chatbot.</p>
+                            <p>Tu opinión es muy importante para nosotros. ¿Qué mejora te gustaría que incluyéramos?</p>
+                        </div>
+
+                        <div class="suggestion-form-container">
+                            <h4>
+                                <i class="fas fa-comment-dots"></i>
+                                Sugerir una Mejora
+                            </h4>
+                            <form id="suggestionForm" class="suggestion-form">
+                                <div class="form-group">
+                                    <label for="suggestionText">¿Qué mejora te gustaría que incluyéramos?</label>
+                                    <textarea 
+                                        id="suggestionText" 
+                                        name="suggestion" 
+                                        class="form-textarea" 
+                                        rows="5"
+                                        placeholder="Describe la mejora que te gustaría ver en el chatbot..."
+                                        required
+                                    ></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane"></i>
+                                    Enviar Sugerencia
+                                </button>
+                            </form>
+                        </div>
+
+                        <div class="improvements-features">
+                            <h4>
+                                <i class="fas fa-star"></i>
+                                Próximamente
+                            </h4>
+                            <div class="features-grid">
+                                <div class="feature-item">
+                                    <i class="fas fa-chart-line"></i>
+                                    <span>Análisis avanzados</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-robot"></i>
+                                    <span>IA mejorada</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-language"></i>
+                                    <span>Más idiomas</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js" onload="console.log('✅ Chart.js cargado correctamente')" onerror="console.error('❌ Error cargando Chart.js')"></script>
+    <script src="src/config/airtable.config.js"></script>
+    <script src="src/services/airtableService.js"></script>
+    <script src="src/auth/mockData.js"></script>
+    <script src="src/auth/authService.js"></script>
+    <script src="src/config/airtable.init.js"></script>
+    <script src="src/api/gptmaker.js"></script>
+    <script src="src/services/dataService.js"></script>
+    <script src="src/services/notificationService.js"></script>
+    <script src="src/services/pollingService.js"></script>
+    <script src="src/dashboard.js"></script>
+    <script src="src/auth/profile.js"></script>
+    <script src="src/auth/userMenu.js"></script>
+    <script src="src/improvements.js"></script>
+    <script src="src/team.js"></script>
+    <script src="src/services/stripeService.js"></script>
+    <script src="src/billing.js"></script>
+    <script src="src/main.js"></script>
+</body>
+</html>
