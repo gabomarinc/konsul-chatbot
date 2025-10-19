@@ -456,11 +456,25 @@ class ChatbotDashboard {
         
         // Last resort: get email from profile page
         const profileEmail = document.getElementById('profileEmail');
-        if (profileEmail && profileEmail.textContent) {
+        console.log('🔍 Buscando email en perfil visible...');
+        console.log('- Elemento profileEmail encontrado:', !!profileEmail);
+        if (profileEmail) {
+            console.log('- Texto del elemento:', profileEmail.textContent);
             const email = profileEmail.textContent.trim();
             if (email) {
                 console.log('✅ Email obtenido del perfil visible:', email);
                 return { email: email, role: 'admin' }; // Assume admin for API config
+            }
+        }
+        
+        // Force get email from any profile element
+        const emailElements = document.querySelectorAll('[id*="email"], [id*="Email"]');
+        console.log('🔍 Elementos con email encontrados:', emailElements.length);
+        for (let element of emailElements) {
+            if (element.textContent && element.textContent.includes('@')) {
+                const email = element.textContent.trim();
+                console.log('✅ Email encontrado en elemento alternativo:', email);
+                return { email: email, role: 'admin' };
             }
         }
         
@@ -642,11 +656,21 @@ class ChatbotDashboard {
 
         try {
             // Get current user
-            const currentUser = this.getCurrentUser();
+            let currentUser = this.getCurrentUser();
+            
+            // If no user found, try to get email directly from profile
             if (!currentUser || !currentUser.email) {
-                console.error('❌ Usuario no encontrado o sin email:', currentUser);
-                this.showNotification('Error: Usuario no encontrado. Por favor, inicia sesión nuevamente.', 'error');
-                return;
+                console.log('🔄 Usuario no encontrado, obteniendo email del perfil...');
+                const profileEmail = document.getElementById('profileEmail');
+                if (profileEmail && profileEmail.textContent) {
+                    const email = profileEmail.textContent.trim();
+                    currentUser = { email: email, role: 'admin' };
+                    console.log('✅ Email obtenido directamente del perfil:', email);
+                } else {
+                    console.error('❌ Usuario no encontrado y no se puede obtener email del perfil');
+                    this.showNotification('Error: Usuario no encontrado. Por favor, inicia sesión nuevamente.', 'error');
+                    return;
+                }
             }
 
             console.log('👤 Usuario actual:', currentUser);
