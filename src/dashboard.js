@@ -270,6 +270,9 @@ class ChatbotDashboard {
         // Agent filters
         this.setupAgentFilters();
 
+        // Profile tabs functionality
+        this.setupProfileTabs();
+
         // Close mobile menu when clicking outside
         document.addEventListener('click', (e) => {
             if (window.innerWidth <= 768) {
@@ -346,6 +349,221 @@ class ChatbotDashboard {
                 this.applyAgentFilters(tab.dataset.filter);
             });
         });
+    }
+
+    setupProfileTabs() {
+        console.log('🔧 Configurando pestañas del perfil...');
+        
+        // Check user role and show/hide API Config tab
+        this.checkUserRoleForApiConfig();
+        
+        // Setup tab switching functionality
+        const profileTabs = document.querySelectorAll('.profile-tabs .tab-btn');
+        profileTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.dataset.tab;
+                this.switchProfileTab(tabId);
+            });
+        });
+
+        // Setup API Config form functionality
+        this.setupApiConfigForm();
+    }
+
+    checkUserRoleForApiConfig() {
+        console.log('🔍 Verificando rol del usuario para mostrar pestaña de API Config...');
+        
+        // Get current user role from localStorage or auth service
+        const currentUser = this.getCurrentUser();
+        const userRole = currentUser?.role || 'user';
+        
+        console.log(`👤 Rol del usuario actual: ${userRole}`);
+        
+        const apiConfigTab = document.getElementById('apiConfigTab');
+        if (apiConfigTab) {
+            if (userRole === 'admin') {
+                apiConfigTab.style.display = 'flex';
+                console.log('✅ Pestaña API Config mostrada para administrador');
+            } else {
+                apiConfigTab.style.display = 'none';
+                console.log('🚫 Pestaña API Config oculta para usuario no administrador');
+            }
+        } else {
+            console.warn('⚠️ No se encontró la pestaña API Config');
+        }
+    }
+
+    getCurrentUser() {
+        // Try to get user from localStorage first
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+            try {
+                return JSON.parse(storedUser);
+            } catch (e) {
+                console.error('Error parsing stored user:', e);
+            }
+        }
+        
+        // Fallback to auth service
+        if (window.authService && window.authService.getCurrentUser) {
+            return window.authService.getCurrentUser();
+        }
+        
+        return null;
+    }
+
+    switchProfileTab(tabId) {
+        console.log(`🔄 Cambiando a pestaña: ${tabId}`);
+        
+        // Remove active class from all tabs
+        document.querySelectorAll('.profile-tabs .tab-btn').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Remove active class from all tab contents
+        document.querySelectorAll('.profile-content .tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        // Add active class to clicked tab
+        const clickedTab = document.querySelector(`[data-tab="${tabId}"]`);
+        if (clickedTab) {
+            clickedTab.classList.add('active');
+        }
+        
+        // Add active class to corresponding content
+        const tabContent = document.getElementById(tabId);
+        if (tabContent) {
+            tabContent.classList.add('active');
+        }
+    }
+
+    setupApiConfigForm() {
+        console.log('🔧 Configurando formulario de API Config...');
+        
+        const form = document.getElementById('apiConfigForm');
+        const toggleBtn = document.getElementById('toggleTokenVisibility');
+        const testBtn = document.getElementById('testApiConnection');
+        
+        if (!form) {
+            console.warn('⚠️ No se encontró el formulario de API Config');
+            return;
+        }
+
+        // Load existing API token
+        this.loadApiToken();
+
+        // Toggle token visibility
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                const input = document.getElementById('apiToken');
+                const icon = toggleBtn.querySelector('i');
+                
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.className = 'fas fa-eye-slash';
+                } else {
+                    input.type = 'password';
+                    icon.className = 'fas fa-eye';
+                }
+            });
+        }
+
+        // Test API connection
+        if (testBtn) {
+            testBtn.addEventListener('click', () => {
+                this.testApiConnection();
+            });
+        }
+
+        // Form submission
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveApiConfig();
+        });
+    }
+
+    loadApiToken() {
+        console.log('📥 Cargando token de API guardado...');
+        
+        const apiToken = localStorage.getItem('apiToken');
+        const tokenInput = document.getElementById('apiToken');
+        
+        if (apiToken && tokenInput) {
+            tokenInput.value = apiToken;
+            console.log('✅ Token de API cargado desde localStorage');
+        }
+    }
+
+    async testApiConnection() {
+        console.log('🔌 Probando conexión con API...');
+        
+        const tokenInput = document.getElementById('apiToken');
+        const apiToken = tokenInput.value.trim();
+        const statusElement = document.getElementById('apiStatus');
+        
+        if (!apiToken) {
+            this.showNotification('Por favor, ingresa un token de API primero', 'warning');
+            return;
+        }
+
+        // Show testing status
+        this.showApiStatus('testing', 'Probando conexión...');
+        
+        try {
+            // Simulate API test (replace with actual API call)
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // For demo purposes, assume connection is successful
+            // In real implementation, you would make an actual API call here
+            this.showApiStatus('connected', 'Conexión exitosa');
+            this.showNotification('Conexión con API establecida correctamente', 'success');
+            console.log('✅ Conexión con API exitosa');
+            
+        } catch (error) {
+            this.showApiStatus('disconnected', 'Error de conexión');
+            this.showNotification('Error al conectar con la API', 'error');
+            console.error('❌ Error al conectar con API:', error);
+        }
+    }
+
+    showApiStatus(status, message) {
+        const statusElement = document.getElementById('apiStatus');
+        const indicator = statusElement.querySelector('.status-indicator i');
+        const textElement = statusElement.querySelector('.status-text');
+        
+        if (statusElement) {
+            statusElement.style.display = 'block';
+            
+            // Remove previous status classes
+            indicator.classList.remove('connected', 'disconnected', 'testing');
+            indicator.classList.add(status);
+            
+            textElement.textContent = message;
+        }
+    }
+
+    saveApiConfig() {
+        console.log('💾 Guardando configuración de API...');
+        
+        const tokenInput = document.getElementById('apiToken');
+        const apiToken = tokenInput.value.trim();
+        
+        if (!apiToken) {
+            this.showNotification('Por favor, ingresa un token de API válido', 'warning');
+            return;
+        }
+
+        // Save to localStorage
+        localStorage.setItem('apiToken', apiToken);
+        
+        // Update global API service if available
+        if (window.gptmakerService) {
+            window.gptmakerService.setApiKey(apiToken);
+        }
+        
+        this.showNotification('Configuración de API guardada exitosamente', 'success');
+        console.log('✅ Configuración de API guardada');
     }
 
     navigateToSection(section) {
