@@ -523,19 +523,10 @@ class ChatbotDashboard {
         // Load existing API token
         this.loadApiToken();
 
-        // Toggle token visibility
+        // Toggle token visibility with password protection
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
-                const input = document.getElementById('apiToken');
-                const icon = toggleBtn.querySelector('i');
-                
-                if (input.type === 'password') {
-                    input.type = 'text';
-                    icon.className = 'fas fa-eye-slash';
-                } else {
-                    input.type = 'password';
-                    icon.className = 'fas fa-eye';
-                }
+                this.toggleTokenVisibility();
             });
         }
 
@@ -641,6 +632,169 @@ class ChatbotDashboard {
             
             textElement.textContent = message;
         }
+    }
+
+    toggleTokenVisibility() {
+        console.log('👁️ Intentando mostrar/ocultar token...');
+        
+        const input = document.getElementById('apiToken');
+        const toggleBtn = document.getElementById('toggleTokenVisibility');
+        const icon = toggleBtn.querySelector('i');
+        
+        if (!input || !toggleBtn) {
+            console.error('❌ Elementos no encontrados');
+            return;
+        }
+        
+        // Si el token ya está visible, simplemente ocultarlo
+        if (input.type === 'text') {
+            input.type = 'password';
+            icon.className = 'fas fa-eye';
+            console.log('🔒 Token ocultado');
+            return;
+        }
+        
+        // Si el token está oculto, pedir contraseña
+        this.showPasswordModal(() => {
+            // Callback cuando la contraseña es correcta
+            input.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+            console.log('👁️ Token mostrado');
+        });
+    }
+
+    showPasswordModal(onSuccess) {
+        console.log('🔐 Mostrando modal de contraseña...');
+        
+        // Crear modal
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay password-modal';
+        modal.innerHTML = `
+            <div class="modal-content password-modal-content">
+                <div class="modal-header">
+                    <h3>
+                        <i class="fas fa-lock"></i>
+                        Verificar Identidad
+                    </h3>
+                    <button class="modal-close" id="closePasswordModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Por seguridad, ingresa tu contraseña para ver el token de API:</p>
+                    <form id="passwordForm">
+                        <div class="form-group">
+                            <label for="passwordInput">Contraseña</label>
+                            <input 
+                                type="password" 
+                                id="passwordInput" 
+                                name="password" 
+                                placeholder="Ingresa tu contraseña"
+                                required
+                                autofocus
+                            />
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-outline" id="cancelPasswordBtn">
+                                <i class="fas fa-times"></i>
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check"></i>
+                                Verificar
+                            </button>
+                        </div>
+                    </form>
+                    <div class="password-error" id="passwordError" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Contraseña incorrecta. Intenta de nuevo.</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        console.log('✅ Modal de contraseña agregado al DOM');
+
+        // Event listeners
+        const closeBtn = modal.querySelector('#closePasswordModal');
+        const cancelBtn = modal.querySelector('#cancelPasswordBtn');
+        const form = modal.querySelector('#passwordForm');
+        const passwordInput = modal.querySelector('#passwordInput');
+        const errorDiv = modal.querySelector('#passwordError');
+
+        const closeModal = () => {
+            console.log('🚫 Cerrando modal de contraseña');
+            modal.remove();
+        };
+
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Manejar envío del formulario
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log('🔐 Verificando contraseña...');
+            
+            const password = passwordInput.value.trim();
+            
+            if (!password) {
+                this.showPasswordError(errorDiv, 'Por favor, ingresa tu contraseña');
+                return;
+            }
+
+            try {
+                // Verificar contraseña con el usuario actual
+                const currentUser = this.getCurrentUser();
+                if (!currentUser || !currentUser.email) {
+                    throw new Error('Usuario no encontrado');
+                }
+
+                // Buscar usuario en Airtable para verificar contraseña
+                const userResult = await window.airtableService.getUserByEmail(currentUser.email);
+                
+                if (!userResult.success || !userResult.user) {
+                    throw new Error('Usuario no encontrado en Airtable');
+                }
+
+                // Verificar contraseña
+                const passwordMatch = window.airtableService.verifyPassword(userResult.user.password, password);
+                
+                if (passwordMatch) {
+                    console.log('✅ Contraseña correcta');
+                    closeModal();
+                    onSuccess(); // Ejecutar callback de éxito
+                } else {
+                    console.log('❌ Contraseña incorrecta');
+                    this.showPasswordError(errorDiv, 'Contraseña incorrecta. Intenta de nuevo.');
+                }
+
+            } catch (error) {
+                console.error('❌ Error verificando contraseña:', error);
+                this.showPasswordError(errorDiv, 'Error verificando contraseña. Intenta de nuevo.');
+            }
+        });
+
+        // Focus en el input
+        setTimeout(() => {
+            passwordInput.focus();
+        }, 100);
+    }
+
+    showPasswordError(errorDiv, message) {
+        errorDiv.style.display = 'block';
+        errorDiv.querySelector('span').textContent = message;
+        
+        // Ocultar error después de 3 segundos
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 3000);
     }
 
     async saveApiConfig() {
