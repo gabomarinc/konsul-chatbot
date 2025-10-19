@@ -338,10 +338,11 @@ class ChatbotDashboard {
     }
 
     setupAgentFilters() {
-        const filterTabs = document.querySelectorAll('.tab-btn');
+        // Solo seleccionar los tabs de filtros de agentes, no los del perfil
+        const filterTabs = document.querySelectorAll('.agents-section .tab-btn, .filter-tabs .tab-btn');
         filterTabs.forEach(tab => {
             tab.addEventListener('click', () => {
-                // Remove active class from all tabs
+                // Remove active class from all tabs in this section
                 filterTabs.forEach(t => t.classList.remove('active'));
                 // Add active class to clicked tab
                 tab.classList.add('active');
@@ -3265,6 +3266,13 @@ class ChatbotDashboard {
         
         agentCards.forEach(card => {
             const statusElement = card.querySelector('.agent-status');
+            
+            // Validar que statusElement existe antes de acceder a classList
+            if (!statusElement) {
+                console.warn('⚠️ Elemento .agent-status no encontrado en una tarjeta de agente');
+                return; // Saltar esta tarjeta
+            }
+            
             const status = statusElement.classList.contains('active') ? 'active' : 'inactive';
             
             if (filter === 'all' || filter === status) {
