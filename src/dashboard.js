@@ -483,15 +483,45 @@ class ChatbotDashboard {
         });
     }
 
-    loadApiToken() {
+    async loadApiToken() {
         console.log('📥 Cargando token de API guardado...');
         
-        const apiToken = localStorage.getItem('apiToken');
         const tokenInput = document.getElementById('apiToken');
-        
-        if (apiToken && tokenInput) {
-            tokenInput.value = apiToken;
-            console.log('✅ Token de API cargado desde localStorage');
+        if (!tokenInput) return;
+
+        try {
+            // Try to load from Airtable first
+            const currentUser = this.getCurrentUser();
+            if (currentUser && window.airtableService && window.authService && window.authService.useAirtable) {
+                console.log('🗄️ Cargando token desde Airtable...');
+                
+                const userResult = await window.airtableService.getUserByEmail(currentUser.email);
+                
+                if (userResult.success && userResult.user && userResult.user.token_api) {
+                    tokenInput.value = userResult.user.token_api;
+                    console.log('✅ Token de API cargado desde Airtable');
+                    return;
+                }
+            }
+            
+            // Fallback to localStorage
+            const apiToken = localStorage.getItem('apiToken');
+            if (apiToken) {
+                tokenInput.value = apiToken;
+                console.log('✅ Token de API cargado desde localStorage');
+            } else {
+                console.log('ℹ️ No se encontró token de API guardado');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error al cargar token de API:', error);
+            
+            // Fallback to localStorage
+            const apiToken = localStorage.getItem('apiToken');
+            if (apiToken && tokenInput) {
+                tokenInput.value = apiToken;
+                console.log('✅ Token de API cargado desde localStorage (fallback)');
+            }
         }
     }
 
@@ -543,7 +573,7 @@ class ChatbotDashboard {
         }
     }
 
-    saveApiConfig() {
+    async saveApiConfig() {
         console.log('💾 Guardando configuración de API...');
         
         const tokenInput = document.getElementById('apiToken');
@@ -554,16 +584,59 @@ class ChatbotDashboard {
             return;
         }
 
-        // Save to localStorage
-        localStorage.setItem('apiToken', apiToken);
-        
-        // Update global API service if available
-        if (window.gptmakerService) {
-            window.gptmakerService.setApiKey(apiToken);
+        try {
+            // Get current user
+            const currentUser = this.getCurrentUser();
+            if (!currentUser) {
+                this.showNotification('Error: Usuario no encontrado', 'error');
+                return;
+            }
+
+            console.log('👤 Usuario actual:', currentUser);
+
+            // Save to Airtable if available
+            if (window.airtableService && window.authService && window.authService.useAirtable) {
+                console.log('🗄️ Guardando token en Airtable...');
+                
+                // Get user ID from Airtable
+                const userResult = await window.airtableService.getUserByEmail(currentUser.email);
+                
+                if (!userResult.success || !userResult.user) {
+                    throw new Error('No se pudo encontrar el usuario en Airtable');
+                }
+                
+                const userId = userResult.user.id;
+                console.log('🆔 ID del usuario en Airtable:', userId);
+                
+                // Update user with API token
+                const updateResult = await window.airtableService.updateUser(userId, {
+                    token_api: apiToken
+                });
+                
+                if (!updateResult.success) {
+                    throw new Error(updateResult.error || 'Error al guardar token en Airtable');
+                }
+                
+                console.log('✅ Token guardado en Airtable exitosamente');
+            } else {
+                console.log('⚠️ Airtable no disponible, guardando solo en localStorage');
+            }
+
+            // Save to localStorage as backup
+            localStorage.setItem('apiToken', apiToken);
+            
+            // Update global API service if available
+            if (window.gptmakerService) {
+                window.gptmakerService.setApiKey(apiToken);
+            }
+            
+            this.showNotification('Configuración de API guardada exitosamente', 'success');
+            console.log('✅ Configuración de API guardada');
+            
+        } catch (error) {
+            console.error('❌ Error al guardar configuración de API:', error);
+            this.showNotification(`Error al guardar configuración: ${error.message}`, 'error');
         }
-        
-        this.showNotification('Configuración de API guardada exitosamente', 'success');
-        console.log('✅ Configuración de API guardada');
     }
 
     navigateToSection(section) {

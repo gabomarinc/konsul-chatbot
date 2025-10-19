@@ -182,6 +182,7 @@ class AirtableService {
             if (userData.role !== undefined) fields['role'] = userData.role;
             if (userData.status !== undefined) fields['status'] = userData.status;
             if (userData.hasPaid !== undefined) fields['has_paid'] = userData.hasPaid;
+            if (userData.token_api !== undefined) fields['token_api'] = userData.token_api;
             
             console.log('📤 Campos que se enviarán a Airtable:', fields);
             
@@ -387,6 +388,7 @@ class AirtableService {
             lastLogin: fields.last_login || fields.LastLogin || fields.lastLogin || '',
             // Campos adicionales
             hasPaid: fields.has_paid || false,
+            token_api: fields.token_api || '',
             createdTime: record.createdTime
         };
         

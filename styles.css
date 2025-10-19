@@ -6048,81 +6048,61 @@ body {
     }
 }
 
-/* API Config Styles */
-.api-config-container {
-    padding: 2rem;
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-.api-config-header {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-
-.api-config-header h3 {
-    color: var(--text-primary);
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-}
-
-.api-config-header h3 i {
-    color: var(--primary-color);
-}
-
-.api-config-header p {
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    line-height: 1.5;
-}
-
-.api-config-form {
+/* API Config Styles - Matching profile form styles */
+.api-config-card {
     background: var(--card-bg);
-    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 2rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.api-config-card h3 {
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
 }
 
 .api-config-form .form-group {
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
 }
 
 .api-config-form .form-group label {
     display: block;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-primary);
-    margin-bottom: 0.75rem;
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.api-config-form .form-group label i {
-    color: var(--primary-color);
+    margin-bottom: 0.5rem;
     font-size: 0.9rem;
 }
 
-.input-group {
+.input-with-button {
     display: flex;
     gap: 0.5rem;
     align-items: stretch;
 }
 
-.input-group .form-input {
+.input-with-button input {
     flex: 1;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease;
 }
 
-.input-group .btn {
+.input-with-button input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.input-with-button .btn {
     padding: 0.75rem 1rem;
     border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    background: var(--bg-primary);
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -6132,32 +6112,16 @@ body {
     min-width: 45px;
 }
 
-.input-group .btn:hover {
+.input-with-button .btn:hover {
     background: var(--border-color);
     color: var(--text-primary);
-}
-
-.form-help {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    color: var(--text-muted);
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-    line-height: 1.4;
-}
-
-.form-help i {
-    color: var(--primary-color);
-    margin-top: 0.1rem;
-    flex-shrink: 0;
 }
 
 .form-actions {
     display: flex;
     gap: 1rem;
     justify-content: flex-end;
-    margin-top: 2rem;
+    margin-top: 1.5rem;
     padding-top: 1.5rem;
     border-top: 1px solid var(--border-color);
 }
@@ -6200,11 +6164,7 @@ body {
 
 /* Responsive adjustments for API Config */
 @media (max-width: 768px) {
-    .api-config-container {
-        padding: 1rem;
-    }
-    
-    .api-config-form {
+    .api-config-card {
         padding: 1.5rem;
     }
     
@@ -6216,11 +6176,11 @@ body {
         width: 100%;
     }
     
-    .input-group {
+    .input-with-button {
         flex-direction: column;
     }
     
-    .input-group .btn {
+    .input-with-button .btn {
         width: 100%;
         justify-content: center;
     }
