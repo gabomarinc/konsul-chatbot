@@ -395,21 +395,42 @@ class ChatbotDashboard {
     }
 
     getCurrentUser() {
+        console.log('🔍 Buscando usuario actual...');
+        
         // Try to get user from localStorage first
         const storedUser = localStorage.getItem('currentUser');
         if (storedUser) {
             try {
-                return JSON.parse(storedUser);
+                const user = JSON.parse(storedUser);
+                console.log('✅ Usuario encontrado en localStorage:', user);
+                return user;
             } catch (e) {
-                console.error('Error parsing stored user:', e);
+                console.error('❌ Error parsing stored user:', e);
             }
         }
         
-        // Fallback to auth service
+        // Try authService
         if (window.authService && window.authService.getCurrentUser) {
-            return window.authService.getCurrentUser();
+            const authUser = window.authService.getCurrentUser();
+            if (authUser) {
+                console.log('✅ Usuario encontrado en authService:', authUser);
+                return authUser;
+            }
         }
         
+        // Try to get user from token if available
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            try {
+                const decoded = JSON.parse(atob(token.split('.')[1]));
+                console.log('✅ Usuario encontrado en token:', decoded);
+                return decoded;
+            } catch (e) {
+                console.error('❌ Error decoding token:', e);
+            }
+        }
+        
+        console.warn('⚠️ No se pudo encontrar usuario actual');
         return null;
     }
 
@@ -588,31 +609,40 @@ class ChatbotDashboard {
         try {
             // Get current user
             const currentUser = this.getCurrentUser();
-            if (!currentUser) {
-                this.showNotification('Error: Usuario no encontrado', 'error');
+            if (!currentUser || !currentUser.email) {
+                console.error('❌ Usuario no encontrado o sin email:', currentUser);
+                this.showNotification('Error: Usuario no encontrado. Por favor, inicia sesión nuevamente.', 'error');
                 return;
             }
 
             console.log('👤 Usuario actual:', currentUser);
+            console.log('📧 Email del usuario:', currentUser.email);
 
             // Save to Airtable if available
             if (window.airtableService && window.authService && window.authService.useAirtable) {
                 console.log('🗄️ Guardando token en Airtable...');
+                console.log('🔍 Buscando usuario por email:', currentUser.email);
                 
                 // Get user ID from Airtable
                 const userResult = await window.airtableService.getUserByEmail(currentUser.email);
+                console.log('📊 Resultado de búsqueda en Airtable:', userResult);
                 
                 if (!userResult.success || !userResult.user) {
-                    throw new Error('No se pudo encontrar el usuario en Airtable');
+                    console.error('❌ Usuario no encontrado en Airtable');
+                    throw new Error(`No se pudo encontrar el usuario ${currentUser.email} en Airtable`);
                 }
                 
                 const userId = userResult.user.id;
                 console.log('🆔 ID del usuario en Airtable:', userId);
                 
                 // Update user with API token
-                const updateResult = await window.airtableService.updateUser(userId, {
+                const updateData = {
                     token_api: apiToken
-                });
+                };
+                console.log('📤 Datos a enviar a Airtable:', updateData);
+                
+                const updateResult = await window.airtableService.updateUser(userId, updateData);
+                console.log('📊 Resultado de actualización:', updateResult);
                 
                 if (!updateResult.success) {
                     throw new Error(updateResult.error || 'Error al guardar token en Airtable');
@@ -621,14 +651,19 @@ class ChatbotDashboard {
                 console.log('✅ Token guardado en Airtable exitosamente');
             } else {
                 console.log('⚠️ Airtable no disponible, guardando solo en localStorage');
+                console.log('🔧 airtableService disponible:', !!window.airtableService);
+                console.log('🔧 authService disponible:', !!window.authService);
+                console.log('🔧 authService.useAirtable:', window.authService?.useAirtable);
             }
 
             // Save to localStorage as backup
             localStorage.setItem('apiToken', apiToken);
+            console.log('💾 Token guardado en localStorage como respaldo');
             
             // Update global API service if available
             if (window.gptmakerService) {
                 window.gptmakerService.setApiKey(apiToken);
+                console.log('🔧 Token actualizado en gptmakerService');
             }
             
             this.showNotification('Configuración de API guardada exitosamente', 'success');
