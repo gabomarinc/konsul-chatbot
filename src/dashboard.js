@@ -397,6 +397,16 @@ class ChatbotDashboard {
     getCurrentUser() {
         console.log('🔍 Buscando usuario actual...');
         
+        // Debug: mostrar todos los datos disponibles en localStorage
+        console.log('🔍 Debugging localStorage:');
+        console.log('- currentUser:', localStorage.getItem('currentUser'));
+        console.log('- authData:', localStorage.getItem('authData'));
+        console.log('- authToken:', localStorage.getItem('authToken'));
+        console.log('- authService available:', !!window.authService);
+        if (window.authService) {
+            console.log('- authService.currentUser:', window.authService.getCurrentUser());
+        }
+        
         // Try to get user from localStorage first
         const storedUser = localStorage.getItem('currentUser');
         if (storedUser) {
@@ -418,6 +428,20 @@ class ChatbotDashboard {
             }
         }
         
+        // Try to get user from authData in localStorage
+        const authData = localStorage.getItem('authData');
+        if (authData) {
+            try {
+                const parsed = JSON.parse(authData);
+                if (parsed.user) {
+                    console.log('✅ Usuario encontrado en authData:', parsed.user);
+                    return parsed.user;
+                }
+            } catch (e) {
+                console.error('❌ Error parsing authData:', e);
+            }
+        }
+        
         // Try to get user from token if available
         const token = localStorage.getItem('authToken');
         if (token) {
@@ -427,6 +451,16 @@ class ChatbotDashboard {
                 return decoded;
             } catch (e) {
                 console.error('❌ Error decoding token:', e);
+            }
+        }
+        
+        // Last resort: get email from profile page
+        const profileEmail = document.getElementById('profileEmail');
+        if (profileEmail && profileEmail.textContent) {
+            const email = profileEmail.textContent.trim();
+            if (email) {
+                console.log('✅ Email obtenido del perfil visible:', email);
+                return { email: email, role: 'admin' }; // Assume admin for API config
             }
         }
         
