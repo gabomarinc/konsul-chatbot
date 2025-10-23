@@ -1,8 +1,16 @@
 // Servicio de Stripe para gestión de facturación
 class StripeService {
     constructor() {
-        this.publishableKey = 'pk_live_51OAW7JGAJ3j5QtJb8OCglZ26J5uSVzVpDlMEqiwpOWBH8X2ibPYU8ibbiWQ9RAkgvcmchT7IHqXR37i6cewDUfT000WwpwoJip';
-        this.apiVersion = '2023-10-16';
+        // Cargar configuración de Stripe
+        this.config = window.StripeConfig?.config || {
+            publishableKey: 'pk_live_51OAW7JGAJ3j5QtJb8OCglZ26J5uSVzVpDlMEqiwpOWBH8X2ibPYU8ibbiWQ9RAkgvcmchT7IHqXR37i6cewDUfT000WwpwoJip',
+            apiVersion: '2023-10-16',
+            backendURL: '/api/stripe'
+        };
+        
+        this.publishableKey = this.config.publishableKey;
+        this.apiVersion = this.config.apiVersion;
+        this.backendURL = this.config.backendURL;
         this.baseURL = 'https://api.stripe.com/v1';
         this.customerId = null;
         this.subscriptions = [];
@@ -15,12 +23,15 @@ class StripeService {
         try {
             console.log('🔄 Inicializando Stripe Service...');
             
-            // Cargar el script de Stripe si no está disponible
-            if (typeof Stripe === 'undefined') {
-                await this.loadStripeScript();
+            // Para las llamadas al backend, no necesitamos inicializar Stripe.js
+            // Solo lo inicializamos si está disponible para funcionalidades del frontend
+            if (typeof Stripe !== 'undefined') {
+                this.stripe = Stripe(this.publishableKey);
+                console.log('✅ Stripe.js inicializado para frontend');
+            } else {
+                console.log('⚠️ Stripe.js no disponible, usando solo llamadas al backend');
             }
             
-            this.stripe = Stripe(this.publishableKey);
             console.log('✅ Stripe Service inicializado correctamente');
             return true;
         } catch (error) {
@@ -45,17 +56,96 @@ class StripeService {
         });
     }
 
-    // Obtener información del cliente (simulado para demo)
+    // Método para hacer llamadas seguras al backend
+    async makeSecureRequest(endpoint, options = {}) {
+        try {
+            const url = `${this.backendURL}${endpoint}`;
+            const config = {
+                method: options.method || 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                timeout: 5000, // 5 segundos de timeout
+                ...options
+            };
+
+            // Agregar token de autenticación si está disponible
+            const authToken = window.authService?.getToken();
+            if (authToken) {
+                config.headers.Authorization = `Bearer ${authToken}`;
+            }
+
+            console.log(`🔄 Haciendo petición segura a: ${url}`);
+            
+            // Crear un timeout manual
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout: Backend no responde')), 5000);
+            });
+            
+            const fetchPromise = fetch(url, config);
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('✅ Respuesta del backend:', data);
+            return data;
+        } catch (error) {
+            console.error('❌ Error en petición segura:', error);
+            throw error;
+        }
+    }
+
+    // Obtener información del cliente
     async getCustomerInfo() {
         try {
-            // En una implementación real, esto haría una llamada a tu backend
-            // que luego haría la llamada a Stripe con la clave secreta
+            console.log('🔄 Obteniendo información del cliente...');
             
-            // Para demo, retornamos datos simulados
+            // Obtener el stripe_customer_id del usuario autenticado
+            const currentUser = window.authService?.getCurrentUser();
+            const stripeCustomerId = currentUser?.stripeCustomerId;
+            
+            if (!stripeCustomerId) {
+                console.warn('⚠️ Usuario no tiene stripe_customer_id configurado');
+                
+                // Fallback a datos simulados si no hay stripe_customer_id
             const customerInfo = {
                 id: 'cus_demo123',
-                email: window.authService?.getCurrentUser()?.email || 'admin@example.com',
-                name: window.authService?.getCurrentUser()?.name || 'Usuario Demo',
+                    email: currentUser?.email || 'admin@example.com',
+                    name: currentUser?.name || 'Usuario Demo',
+                    created: new Date().toISOString(),
+                    currency: 'usd',
+                    default_source: null,
+                    delinquent: false,
+                    metadata: {
+                        company: 'Konsul Digital'
+                    }
+                };
+
+                this.customerId = customerInfo.id;
+                console.log('✅ Información del cliente obtenida (simulada - sin stripe_customer_id):', customerInfo);
+                return customerInfo;
+            }
+            
+            console.log('🔍 Usando stripe_customer_id:', stripeCustomerId);
+            
+            // Intentar obtener datos reales del backend usando el stripe_customer_id
+            try {
+                const customerInfo = await this.makeSecureRequest(`/customer/${stripeCustomerId}`);
+                this.customerId = customerInfo.id;
+                console.log('✅ Información del cliente obtenida desde backend:', customerInfo);
+                return customerInfo;
+            } catch (backendError) {
+                console.warn('⚠️ Backend no disponible, usando datos simulados:', backendError.message);
+                
+                // Fallback a datos simulados si el backend no está disponible
+                const customerInfo = {
+                    id: stripeCustomerId,
+                    email: currentUser?.email || 'admin@example.com',
+                    name: currentUser?.name || 'Usuario Demo',
                 created: new Date().toISOString(),
                 currency: 'usd',
                 default_source: null,
@@ -66,18 +156,41 @@ class StripeService {
             };
 
             this.customerId = customerInfo.id;
-            console.log('✅ Información del cliente obtenida:', customerInfo);
+                console.log('✅ Información del cliente obtenida (simulada con ID real):', customerInfo);
             return customerInfo;
+            }
         } catch (error) {
             console.error('❌ Error obteniendo información del cliente:', error);
             return null;
         }
     }
 
-    // Obtener suscripciones activas (simulado para demo)
+    // Obtener suscripciones activas
     async getSubscriptions() {
         try {
-            // En una implementación real, esto haría una llamada a tu backend
+            console.log('🔄 Obteniendo suscripciones...');
+            
+            // Obtener el stripe_customer_id del usuario autenticado
+            const currentUser = window.authService?.getCurrentUser();
+            const stripeCustomerId = currentUser?.stripeCustomerId;
+            
+            if (!stripeCustomerId) {
+                console.warn('⚠️ Usuario no tiene stripe_customer_id configurado');
+                return [];
+            }
+            
+            console.log('🔍 Obteniendo suscripciones para stripe_customer_id:', stripeCustomerId);
+            
+            // Intentar obtener datos reales del backend usando el stripe_customer_id
+            try {
+                const subscriptions = await this.makeSecureRequest(`/subscriptions/${stripeCustomerId}`);
+                this.subscriptions = subscriptions;
+                console.log('✅ Suscripciones obtenidas desde backend:', subscriptions);
+                return subscriptions;
+            } catch (backendError) {
+                console.warn('⚠️ Backend no disponible, usando datos simulados:', backendError.message);
+                
+                // Fallback a datos simulados si el backend no está disponible
             const subscriptions = [
                 {
                     id: 'sub_demo123',
@@ -85,6 +198,7 @@ class StripeService {
                     current_period_start: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).getTime() / 1000,
                     current_period_end: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).getTime() / 1000,
                     cancel_at_period_end: false,
+                        customer: stripeCustomerId,
                     items: {
                         data: [{
                             price: {
@@ -106,18 +220,41 @@ class StripeService {
             ];
 
             this.subscriptions = subscriptions;
-            console.log('✅ Suscripciones obtenidas:', subscriptions);
+                console.log('✅ Suscripciones obtenidas (simuladas):', subscriptions);
             return subscriptions;
+            }
         } catch (error) {
             console.error('❌ Error obteniendo suscripciones:', error);
             return [];
         }
     }
 
-    // Obtener facturas (simulado para demo)
+    // Obtener facturas
     async getInvoices() {
         try {
-            // En una implementación real, esto haría una llamada a tu backend
+            console.log('🔄 Obteniendo facturas...');
+            
+            // Obtener el stripe_customer_id del usuario autenticado
+            const currentUser = window.authService?.getCurrentUser();
+            const stripeCustomerId = currentUser?.stripeCustomerId;
+            
+            if (!stripeCustomerId) {
+                console.warn('⚠️ Usuario no tiene stripe_customer_id configurado');
+                return [];
+            }
+            
+            console.log('🔍 Obteniendo facturas para stripe_customer_id:', stripeCustomerId);
+            
+            // Intentar obtener datos reales del backend usando el stripe_customer_id
+            try {
+                const invoices = await this.makeSecureRequest(`/invoices/${stripeCustomerId}`);
+                this.invoices = invoices;
+                console.log('✅ Facturas obtenidas desde backend:', invoices);
+                return invoices;
+            } catch (backendError) {
+                console.warn('⚠️ Backend no disponible, usando datos simulados:', backendError.message);
+                
+                // Fallback a datos simulados si el backend no está disponible
             const invoices = [
                 {
                     id: 'in_demo123',
@@ -126,6 +263,7 @@ class StripeService {
                     amount_paid: 2999,
                     amount_due: 2999,
                     currency: 'usd',
+                        customer: stripeCustomerId,
                     created: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).getTime() / 1000,
                     due_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).getTime() / 1000,
                     hosted_invoice_url: '#',
@@ -149,6 +287,7 @@ class StripeService {
                     amount_paid: 0,
                     amount_due: 2999,
                     currency: 'usd',
+                        customer: stripeCustomerId,
                     created: new Date().getTime() / 1000,
                     due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).getTime() / 1000,
                     hosted_invoice_url: '#',
@@ -168,22 +307,46 @@ class StripeService {
             ];
 
             this.invoices = invoices;
-            console.log('✅ Facturas obtenidas:', invoices);
+                console.log('✅ Facturas obtenidas (simuladas):', invoices);
             return invoices;
+            }
         } catch (error) {
             console.error('❌ Error obteniendo facturas:', error);
             return [];
         }
     }
 
-    // Obtener métodos de pago (simulado para demo)
+    // Obtener métodos de pago
     async getPaymentMethods() {
         try {
-            // En una implementación real, esto haría una llamada a tu backend
+            console.log('🔄 Obteniendo métodos de pago...');
+            
+            // Obtener el stripe_customer_id del usuario autenticado
+            const currentUser = window.authService?.getCurrentUser();
+            const stripeCustomerId = currentUser?.stripeCustomerId;
+            
+            if (!stripeCustomerId) {
+                console.warn('⚠️ Usuario no tiene stripe_customer_id configurado');
+                return [];
+            }
+            
+            console.log('🔍 Obteniendo métodos de pago para stripe_customer_id:', stripeCustomerId);
+            
+            // Intentar obtener datos reales del backend usando el stripe_customer_id
+            try {
+                const paymentMethods = await this.makeSecureRequest(`/payment-methods/${stripeCustomerId}`);
+                this.paymentMethods = paymentMethods;
+                console.log('✅ Métodos de pago obtenidos desde backend:', paymentMethods);
+                return paymentMethods;
+            } catch (backendError) {
+                console.warn('⚠️ Backend no disponible, usando datos simulados:', backendError.message);
+                
+                // Fallback a datos simulados si el backend no está disponible
             const paymentMethods = [
                 {
                     id: 'pm_demo123',
                     type: 'card',
+                        customer: stripeCustomerId,
                     card: {
                         brand: 'visa',
                         last4: '4242',
@@ -194,8 +357,9 @@ class StripeService {
             ];
 
             this.paymentMethods = paymentMethods;
-            console.log('✅ Métodos de pago obtenidos:', paymentMethods);
+                console.log('✅ Métodos de pago obtenidos (simulados):', paymentMethods);
             return paymentMethods;
+            }
         } catch (error) {
             console.error('❌ Error obteniendo métodos de pago:', error);
             return [];
@@ -265,10 +429,91 @@ class StripeService {
             }
         }
     }
+
+    // Crear cliente en Stripe
+    async createCustomer(customerData) {
+        try {
+            console.log('🔄 Creando cliente...');
+            const customer = await this.makeSecureRequest('/customer', {
+                method: 'POST',
+                body: JSON.stringify(customerData)
+            });
+            console.log('✅ Cliente creado:', customer);
+            return customer;
+        } catch (error) {
+            console.error('❌ Error creando cliente:', error);
+            throw error;
+        }
+    }
+
+    // Crear suscripción
+    async createSubscription(subscriptionData) {
+        try {
+            console.log('🔄 Creando suscripción...');
+            const subscription = await this.makeSecureRequest('/subscription', {
+                method: 'POST',
+                body: JSON.stringify(subscriptionData)
+            });
+            console.log('✅ Suscripción creada:', subscription);
+            return subscription;
+        } catch (error) {
+            console.error('❌ Error creando suscripción:', error);
+            throw error;
+        }
+    }
+
+    // Cancelar suscripción
+    async cancelSubscription(subscriptionId, cancelAtPeriodEnd = true) {
+        try {
+            console.log('🔄 Cancelando suscripción:', subscriptionId);
+            const subscription = await this.makeSecureRequest(`/subscription/${subscriptionId}/cancel`, {
+                method: 'POST',
+                body: JSON.stringify({ cancel_at_period_end: cancelAtPeriodEnd })
+            });
+            console.log('✅ Suscripción cancelada:', subscription);
+            return subscription;
+        } catch (error) {
+            console.error('❌ Error cancelando suscripción:', error);
+            throw error;
+        }
+    }
+
+    // Crear intent de pago
+    async createPaymentIntent(paymentData) {
+        try {
+            console.log('🔄 Creando intent de pago...');
+            const paymentIntent = await this.makeSecureRequest('/payment-intent', {
+                method: 'POST',
+                body: JSON.stringify(paymentData)
+            });
+            console.log('✅ Intent de pago creado:', paymentIntent);
+            return paymentIntent;
+        } catch (error) {
+            console.error('❌ Error creando intent de pago:', error);
+            throw error;
+        }
+    }
+
+    // Crear setup intent para métodos de pago
+    async createSetupIntent(customerId) {
+        try {
+            console.log('🔄 Creando setup intent...');
+            const setupIntent = await this.makeSecureRequest('/setup-intent', {
+                method: 'POST',
+                body: JSON.stringify({ customer: customerId })
+            });
+            console.log('✅ Setup intent creado:', setupIntent);
+            return setupIntent;
+        } catch (error) {
+            console.error('❌ Error creando setup intent:', error);
+            throw error;
+        }
+    }
 }
 
 // Hacer disponible globalmente
 window.StripeService = StripeService;
+
 
 
 

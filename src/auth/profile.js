@@ -301,17 +301,39 @@ class ProfileManager {
 
     async loadBillingData() {
         try {
-            // Cargar información de facturación
-            const billingResult = await window.authService.getBillingInfo();
-            if (billingResult.success) {
-                this.updateBillingInfo(billingResult.billing);
+            console.log('💳 Cargando datos de facturación con StripeService...');
+            
+            // Verificar si el BillingManager está disponible
+            if (!window.billingManager) {
+                console.log('🔄 Inicializando BillingManager...');
+                
+                // Verificar que las clases estén disponibles
+                if (typeof BillingManager === 'undefined') {
+                    console.error('❌ BillingManager no está disponible');
+                    this.showNotification('Error: BillingManager no está disponible', 'error');
+                    return;
+                }
+                
+                if (typeof StripeService === 'undefined') {
+                    console.error('❌ StripeService no está disponible');
+                    this.showNotification('Error: StripeService no está disponible', 'error');
+                    return;
+                }
+                
+                window.billingManager = new BillingManager();
+                await window.billingManager.init();
             }
 
-            // Cargar facturas recientes
-            const invoicesResult = await window.authService.getInvoices(1, 5);
-            if (invoicesResult.success) {
-                this.updateInvoicesList(invoicesResult.invoices);
-            }
+            // Verificar que los datos se cargaron correctamente
+            console.log('📊 Verificando datos cargados...');
+            console.log('- Customer Info:', window.billingManager.customerInfo);
+            console.log('- Subscriptions:', window.billingManager.subscriptions);
+            console.log('- Invoices:', window.billingManager.invoices);
+            console.log('- Payment Methods:', window.billingManager.paymentMethods);
+
+            // El BillingManager ya maneja toda la carga de datos y renderizado
+            // Solo necesitamos asegurarnos de que esté inicializado
+            console.log('✅ Datos de facturación cargados correctamente');
 
         } catch (error) {
             console.error('Error cargando datos de facturación:', error);

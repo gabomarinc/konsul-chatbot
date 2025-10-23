@@ -513,7 +513,6 @@ class ChatbotDashboard {
         
         const form = document.getElementById('apiConfigForm');
         const toggleBtn = document.getElementById('toggleTokenVisibility');
-        const testBtn = document.getElementById('testApiConnection');
         
         if (!form) {
             console.warn('⚠️ No se encontró el formulario de API Config');
@@ -527,13 +526,6 @@ class ChatbotDashboard {
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
                 this.toggleTokenVisibility();
-            });
-        }
-
-        // Test API connection
-        if (testBtn) {
-            testBtn.addEventListener('click', () => {
-                this.testApiConnection();
             });
         }
 
@@ -795,6 +787,177 @@ class ChatbotDashboard {
         setTimeout(() => {
             errorDiv.style.display = 'none';
         }, 3000);
+    }
+
+    showChangePasswordModal() {
+        console.log('🔐 Mostrando modal de cambio de contraseña...');
+        
+        // Crear modal
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay password-modal';
+        modal.innerHTML = `
+            <div class="modal-content password-modal-content">
+                <div class="modal-header">
+                    <h3>
+                        <i class="fas fa-key"></i>
+                        Cambiar Contraseña
+                    </h3>
+                    <button class="modal-close" id="closeChangePasswordModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Ingresa tu contraseña actual y la nueva contraseña:</p>
+                    <form id="changePasswordForm">
+                        <div class="form-group">
+                            <label for="currentPasswordInput">Contraseña Actual</label>
+                            <input 
+                                type="password" 
+                                id="currentPasswordInput" 
+                                name="currentPassword" 
+                                placeholder="Ingresa tu contraseña actual"
+                                required
+                                autofocus
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="newPasswordInput">Nueva Contraseña</label>
+                            <input 
+                                type="password" 
+                                id="newPasswordInput" 
+                                name="newPassword" 
+                                placeholder="Ingresa tu nueva contraseña"
+                                required
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPasswordInput">Confirmar Nueva Contraseña</label>
+                            <input 
+                                type="password" 
+                                id="confirmPasswordInput" 
+                                name="confirmPassword" 
+                                placeholder="Confirma tu nueva contraseña"
+                                required
+                            />
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-outline" id="cancelChangePasswordBtn">
+                                <i class="fas fa-times"></i>
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i>
+                                Cambiar Contraseña
+                            </button>
+                        </div>
+                    </form>
+                    <div class="password-error" id="changePasswordError" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Error en el cambio de contraseña. Intenta de nuevo.</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        console.log('✅ Modal de cambio de contraseña agregado al DOM');
+
+        // Event listeners
+        const closeBtn = modal.querySelector('#closeChangePasswordModal');
+        const cancelBtn = modal.querySelector('#cancelChangePasswordBtn');
+        const form = modal.querySelector('#changePasswordForm');
+        const currentPasswordInput = modal.querySelector('#currentPasswordInput');
+        const newPasswordInput = modal.querySelector('#newPasswordInput');
+        const confirmPasswordInput = modal.querySelector('#confirmPasswordInput');
+        const errorDiv = modal.querySelector('#changePasswordError');
+
+        const closeModal = () => {
+            console.log('🚫 Cerrando modal de cambio de contraseña');
+            modal.remove();
+        };
+
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Manejar envío del formulario
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log('🔐 Cambiando contraseña...');
+            
+            const currentPassword = currentPasswordInput.value.trim();
+            const newPassword = newPasswordInput.value.trim();
+            const confirmPassword = confirmPasswordInput.value.trim();
+            
+            // Validaciones
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                this.showPasswordError(errorDiv, 'Por favor, completa todos los campos');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                this.showPasswordError(errorDiv, 'Las contraseñas nuevas no coinciden');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                this.showPasswordError(errorDiv, 'La nueva contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+
+            if (currentPassword === newPassword) {
+                this.showPasswordError(errorDiv, 'La nueva contraseña debe ser diferente a la actual');
+                return;
+            }
+
+            try {
+                // Obtener usuario actual
+                const currentUser = this.getCurrentUser();
+                if (!currentUser || !currentUser.email) {
+                    throw new Error('Usuario no encontrado');
+                }
+
+                // Buscar usuario en Airtable
+                const userResult = await window.airtableService.getUserByEmail(currentUser.email);
+                
+                if (!userResult.success || !userResult.user) {
+                    throw new Error('Usuario no encontrado en Airtable');
+                }
+
+                // Verificar contraseña actual
+                const passwordMatch = window.airtableService.verifyPassword(userResult.user.password, currentPassword);
+                
+                if (!passwordMatch) {
+                    this.showPasswordError(errorDiv, 'La contraseña actual es incorrecta');
+                    return;
+                }
+
+                // Actualizar contraseña en Airtable
+                const updateResult = await window.airtableService.updatePassword(userResult.user.id, newPassword);
+                
+                if (updateResult.success) {
+                    console.log('✅ Contraseña actualizada exitosamente');
+                    this.showNotification('Contraseña actualizada exitosamente', 'success');
+                    closeModal();
+                } else {
+                    throw new Error(updateResult.error || 'Error actualizando contraseña');
+                }
+
+            } catch (error) {
+                console.error('❌ Error cambiando contraseña:', error);
+                this.showPasswordError(errorDiv, 'Error cambiando contraseña. Intenta de nuevo.');
+            }
+        });
+
+        // Focus en el primer input
+        setTimeout(() => {
+            currentPasswordInput.focus();
+        }, 100);
     }
 
     async saveApiConfig() {
@@ -4632,13 +4795,21 @@ class ChatbotDashboard {
             !this.isChatOpened(notif.chatId)
         );
 
+        console.log('🔍 Debug notificaciones:');
+        console.log('- Total notificaciones en headerNotifications:', this.headerNotifications.length);
+        console.log('- Notificaciones no abiertas:', unopenedNotifications.length);
+        console.log('- Total chats sin abrir:', this.dashboardData.chats.filter(chat => !this.isChatOpened(chat.id)).length);
+
         // Generar notificaciones de prueba si no hay ninguna
         if (unopenedNotifications.length === 0) {
+            console.log('🔄 No hay notificaciones, generando notificaciones de prueba...');
             this.generateTestNotifications();
             // Filtrar nuevamente después de generar
             const updatedUnopenedNotifications = this.headerNotifications.filter(notif => 
                 !this.isChatOpened(notif.chatId)
             );
+            
+            console.log('- Notificaciones después de generar:', updatedUnopenedNotifications.length);
             
             if (updatedUnopenedNotifications.length === 0) {
                 return `
@@ -4663,6 +4834,8 @@ class ChatbotDashboard {
             `).join('');
         }
 
+        console.log('✅ Renderizando notificaciones no abiertas:', unopenedNotifications.length);
+        
         return unopenedNotifications.map(notif => `
             <div class="notification-item unread" data-notification-id="${notif.id}" data-chat-id="${notif.chatId}">
                 <div class="notification-item-icon">
@@ -4686,7 +4859,7 @@ class ChatbotDashboard {
         const testNotifications = [];
 
         // Crear notificaciones solo para chats no abiertos
-        unopenedChats.slice(0, 3).forEach((chat, index) => {
+        unopenedChats.slice(0, 10).forEach((chat, index) => {
             const notification = {
                 id: `test-${chat.id}-${Date.now()}-${index}`,
                 chatId: chat.id,

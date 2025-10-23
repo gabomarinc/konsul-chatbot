@@ -389,6 +389,7 @@ class AirtableService {
             // Campos adicionales
             hasPaid: fields.has_paid || false,
             token_api: fields.token_api || '',
+            stripeCustomerId: fields.stripe_customer_id || fields.stripeCustomerId || '',
             createdTime: record.createdTime
         };
         

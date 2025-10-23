@@ -89,4 +89,12 @@ temp/
 .tern-port
 
 # Airtable config files (sensitive data)
+
+# Stripe config files (sensitive data)
+src/config/stripe.config.js
+stripe.config.js
+
+# Backend files (optional - remove if you want to version control them)
+backend-example.js
+package-backend.json
 src/config/airtable.init.js

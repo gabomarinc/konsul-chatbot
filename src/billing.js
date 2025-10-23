@@ -56,16 +56,36 @@ class BillingManager {
 
     // Renderizar la interfaz de facturación
     renderBillingUI() {
+        console.log('🎨 Renderizando interfaz de facturación...');
+        console.log('- Customer Info:', this.customerInfo);
+        console.log('- Subscriptions:', this.subscriptions);
+        console.log('- Invoices:', this.invoices);
+        console.log('- Payment Methods:', this.paymentMethods);
+        
         this.renderCustomerInfo();
         this.renderSubscriptions();
         this.renderInvoices();
         this.renderPaymentMethods();
+        
+        console.log('✅ Interfaz de facturación renderizada');
     }
 
     // Renderizar información del cliente
     renderCustomerInfo() {
+        console.log('👤 Renderizando información del cliente...');
         const customerInfoSection = document.getElementById('customerInfoSection');
-        if (!customerInfoSection || !this.customerInfo) return;
+        
+        if (!customerInfoSection) {
+            console.error('❌ No se encontró el elemento customerInfoSection');
+            return;
+        }
+        
+        if (!this.customerInfo) {
+            console.warn('⚠️ No hay información del cliente para renderizar');
+            return;
+        }
+        
+        console.log('✅ Renderizando información del cliente:', this.customerInfo);
 
         customerInfoSection.innerHTML = `
             <div class="billing-card">
@@ -441,6 +461,7 @@ class BillingManager {
 
 // Hacer disponible globalmente
 window.BillingManager = BillingManager;
+
 
 
 
