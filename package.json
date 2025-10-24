@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "Dashboard web marca blanca para SaaS de chatbots AI",
   "scripts": {
-    "dev": "python3 -m http.server 8000",
-    "serve": "python3 -m http.server 3000"
+    "dev": "npx http-server . -p 8000 -c-1 --cors",
+    "serve": "npx http-server . -p 3000 -c-1 --cors",
+    "start": "npx http-server . -p 8000 -c-1 --cors"
   },
   "keywords": [
     "chatbot",
@@ -17,6 +18,9 @@
   ],
   "author": "Tu Empresa",
   "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
   "engines": {
     "node": ">=16.0.0",
     "npm": ">=8.0.0"
