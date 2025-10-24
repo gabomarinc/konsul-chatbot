@@ -646,21 +646,29 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js" onload="console.log('✅ Chart.js cargado correctamente')" onerror="console.error('❌ Error cargando Chart.js')"></script>
     <script src="https://js.stripe.com/v3/" onload="console.log('✅ Stripe.js cargado correctamente')" onerror="console.error('❌ Error cargando Stripe.js')"></script>
+    
+    <!-- Configuración -->
     <script src="src/config/airtable.config.js"></script>
-    <script src="src/services/airtableService.js"></script>
-    <script src="src/auth/mockData.js"></script>
-    <script src="src/auth/authService.js"></script>
     <script src="src/config/airtable.init.js"></script>
-    <script src="src/api/gptmaker.js"></script>
+    <script src="src/config/stripe.config.js"></script>
+    
+    <!-- Servicios -->
+    <script src="src/services/airtableService.js"></script>
     <script src="src/services/dataService.js"></script>
     <script src="src/services/notificationService.js"></script>
     <script src="src/services/pollingService.js"></script>
-    <script src="src/dashboard.js"></script>
-    <script src="src/config/stripe.config.js"></script>
     <script src="src/services/stripeService.js"></script>
-    <script src="src/billing.js"></script>
+    
+    <!-- Autenticación -->
+    <script src="src/auth/mockData.js"></script>
+    <script src="src/auth/authService.js"></script>
     <script src="src/auth/profile.js"></script>
     <script src="src/auth/userMenu.js"></script>
+    
+    <!-- API y Funcionalidades -->
+    <script src="src/api/gptmaker.js"></script>
+    <script src="src/dashboard.js"></script>
+    <script src="src/billing.js"></script>
     <script src="src/improvements.js"></script>
     <script src="src/team.js"></script>
     <script src="src/main.js"></script>
