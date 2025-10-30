@@ -10,6 +10,19 @@ class AuthService {
     init() {
         console.log('🔧 Inicializando AuthService...');
         
+        // Determinar modo de operación (Airtable vs Mock) ANTES de validar
+        // Verificar si AirtableService está disponible
+        if (this.useAirtable && !window.airtableService) {
+            console.warn('⚠️ AirtableService no está disponible, usando datos mock');
+            this.useAirtable = false;
+        }
+        
+        // Forzar uso de datos mock para desarrollo
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.log('🏠 Modo desarrollo detectado, usando datos mock');
+            this.useAirtable = false;
+        }
+
         // Cargar datos de autenticación desde localStorage
         this.loadAuthData();
         
@@ -19,15 +32,9 @@ class AuthService {
             hasToken: !!this.token
         });
         
-        // Verificar si el token es válido al cargar
-        if (this.token) {
+        // Verificar si el token es válido al cargar (solo en modo Airtable/API)
+        if (this.token && this.useAirtable) {
             this.validateToken();
-        }
-        
-        // Verificar si Airtable está disponible
-        if (this.useAirtable && !window.airtableService) {
-            console.warn('⚠️ AirtableService no está disponible, usando datos mock');
-            this.useAirtable = false;
         }
         
         console.log('✅ AuthService inicializado');
@@ -54,15 +61,27 @@ class AuthService {
                 console.log('🗄️ Autenticando con Airtable...');
                 console.log('📧 Email:', email);
                 console.log('🔐 Password length:', password ? password.length : 0);
+                console.log('🔑 API Key configurada:', !!window.airtableService.apiKey);
+                
+                // Verificar que Airtable esté configurado
+                if (!window.airtableService.apiKey) {
+                    console.error('❌ API Key de Airtable no configurada');
+                    throw new Error('Servicio de autenticación no configurado');
+                }
                 
                 // Buscar usuario en Airtable
                 const result = await window.airtableService.getUserByEmail(email);
                 
                 console.log('📊 Resultado de búsqueda:', result);
                 
-                if (!result.success || !result.user) {
-                    console.error('❌ Usuario no encontrado o error en búsqueda');
-                    throw new Error('Credenciales inválidas');
+                if (!result.success) {
+                    console.error('❌ Error en búsqueda de usuario:', result.error);
+                    throw new Error(result.error || 'Error de conexión con el servidor');
+                }
+                
+                if (!result.user) {
+                    console.error('❌ Usuario no encontrado en Airtable');
+                    throw new Error('Usuario no encontrado');
                 }
                 
                 user = result.user;
@@ -70,17 +89,17 @@ class AuthService {
                     id: user.id,
                     email: user.email,
                     name: user.name,
-                    hasPassword: !!user.password
+                    hasPassword: !!user.password,
+                    passwordLength: user.password ? user.password.length : 0
                 });
                 
                 // Verificar contraseña
                 const passwordMatch = window.airtableService.verifyPassword(user.password, password);
                 console.log('🔐 Verificación de contraseña:', passwordMatch ? 'CORRECTA ✓' : 'INCORRECTA ✗');
-                console.log('🔐 Password almacenada:', user.password);
-                console.log('🔐 Password ingresada:', password);
                 
                 if (!passwordMatch) {
-                    throw new Error('Credenciales inválidas');
+                    console.error('❌ Contraseña incorrecta');
+                    throw new Error('Contraseña incorrecta');
                 }
                 
                 // Actualizar última sesión en Airtable
@@ -389,6 +408,10 @@ class AuthService {
     async validateToken() {
         try {
             if (!this.token) return false;
+            // En modo mock no validamos contra la API, asumimos válido si no ha expirado
+            if (!this.useAirtable) {
+                return true;
+            }
 
             const response = await fetch(`${this.apiBase}/validate`, {
                 method: 'GET',

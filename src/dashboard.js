@@ -42,6 +42,17 @@ class ChatbotDashboard {
         
         this.init();
     }
+    // Espera a que window.teamManager esté disponible
+    async waitForTeamManager(timeoutMs = 2000) {
+        const start = Date.now();
+        while (!window.teamManager) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            if (Date.now() - start > timeoutMs) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     async init() {
         this.setupEventListeners();
@@ -3702,9 +3713,13 @@ class ChatbotDashboard {
         }
 
         teamGrid.innerHTML = '';
-        console.log(`👥 Actualizando lista de equipo. Total miembros: ${this.dashboardData.team.length}`);
+        const members = (window.teamManager && Array.isArray(window.teamManager.teamMembers)) 
+            ? window.teamManager.teamMembers 
+            : [];
 
-        if (this.dashboardData.team.length === 0) {
+        console.log(`👥 Actualizando lista de equipo. Total miembros (reales): ${members.length}`);
+
+        if (members.length === 0) {
             teamGrid.innerHTML = `
                 <div class="empty-team-state">
                     <i class="fas fa-user-slash"></i>
@@ -3718,12 +3733,12 @@ class ChatbotDashboard {
             return;
         }
 
-        this.dashboardData.team.forEach(member => {
+        members.forEach(member => {
             const memberElement = this.createTeamMemberElement(member);
             teamGrid.appendChild(memberElement);
         });
         
-        console.log(`✅ Lista de equipo actualizada con ${this.dashboardData.team.length} miembros`);
+        console.log(`✅ Lista de equipo actualizada con ${members.length} miembros`);
     }
 
     // Load and display channels
@@ -5329,20 +5344,6 @@ class ChatbotDashboard {
                 </div>
                 <div class="modal-body">
                     <form id="inviteTeamForm">
-                        <div class="form-group">
-                            <label for="memberName">
-                                <i class="fas fa-user"></i>
-                                Nombre Completo
-                            </label>
-                            <input 
-                                type="text" 
-                                id="memberName" 
-                                name="memberName" 
-                                class="form-input" 
-                                placeholder="Ej: Juan Pérez"
-                                required
-                            />
-                        </div>
                         
                         <div class="form-group">
                             <label for="memberEmail">
@@ -5373,22 +5374,7 @@ class ChatbotDashboard {
                             </small>
                         </div>
                         
-                        <div class="form-group">
-                            <label for="memberSkills">
-                                <i class="fas fa-star"></i>
-                                Habilidades (opcional)
-                            </label>
-                            <input 
-                                type="text" 
-                                id="memberSkills" 
-                                name="memberSkills" 
-                                class="form-input" 
-                                placeholder="Ej: Ventas, Soporte, Marketing (separadas por coma)"
-                            />
-                            <small style="color: #6b7280; font-size: 0.875rem; margin-top: 0.25rem; display: block;">
-                                Separa las habilidades con comas
-                            </small>
-                        </div>
+                        
                         
                         <div class="modal-actions">
                             <button type="button" class="btn btn-outline" id="cancelInviteBtn">
@@ -5442,14 +5428,13 @@ class ChatbotDashboard {
             console.log('📝 Procesando formulario de invitación...');
             
             const formData = new FormData(form);
+            const emailValue = formData.get('memberEmail');
+            const derivedName = (emailValue || '').split('@')[0];
             const memberData = {
                 id: Date.now().toString(),
-                name: formData.get('memberName'),
-                email: formData.get('memberEmail'),
+                name: derivedName,
+                email: emailValue,
                 role: 'user', // Rol fijo predefinido de Airtable
-                skills: formData.get('memberSkills') 
-                    ? formData.get('memberSkills').split(',').map(s => s.trim()).filter(s => s)
-                    : [],
                 status: 'pending',
                 invitedAt: new Date().toISOString()
             };
@@ -5458,27 +5443,21 @@ class ChatbotDashboard {
             console.log('📌 Rol asignado automáticamente: user (predefinido en Airtable)');
 
             try {
-                // Agregar miembro al array local
-                this.dashboardData.team.push(memberData);
-                console.log('✅ Miembro agregado al array local');
-
-                // Guardar en localStorage
-                localStorage.setItem('teamMembers', JSON.stringify(this.dashboardData.team));
-                console.log('💾 Miembros guardados en localStorage');
-
-                // Actualizar la lista visual
+                // Usar TeamManager/Airtable, no datos mock
+                const ready = await this.waitForTeamManager(3000);
+                if (ready && window.teamManager) {
+                    await window.teamManager.handleInvite(form, modal);
+                } else {
+                    console.warn('⚠️ teamManager no disponible; no se puede invitar miembro real');
+                    this.showNotification('No se pudo inicializar el gestor de equipo. Intenta nuevamente.', 'warning');
+                    return; 
+                }
+                // Actualizar la lista visual desde fuente real
                 this.updateTeamList();
-                console.log('🔄 Lista de equipo actualizada visualmente');
-
-                // Actualizar estadísticas del overview
                 await this.updateOverviewStats();
-                console.log('📊 Estadísticas actualizadas');
 
                 // Mostrar notificación de éxito
-                this.showNotification(
-                    `Invitación enviada a ${memberData.name} (${memberData.email})`,
-                    'success'
-                );
+                this.showNotification(`Invitación enviada a ${memberData.email}`, 'success');
                 console.log('✅ Notificación de éxito mostrada');
 
                 // Cerrar modal

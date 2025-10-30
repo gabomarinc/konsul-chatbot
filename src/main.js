@@ -1,8 +1,11 @@
 // Main entry point
 console.log('🚀 Inicializando Dashboard Chatbot AI...');
 
-// Token actualizado de GPTMaker
-const GPTMAKER_API_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJncHRtYWtlciIsImlkIjoiM0U2MTZFMDQ2RDI3RTFDQjYyM0JGRTVFOUE2RTlCREUiLCJ0ZW5hbnQiOiIzRTYxNkUwNDZEMjdFMUNCNjIzQkZFNUU5QTZFOUJERSIsInV1aWQiOiJjMDU1NGM1Yy1mYjhiLTQ5YjUtOGRhMy1mZGEzMTc1MGZlZDgifQ.el1Rog4MU6G0UJ8tBzsWhhnecYoZ6n7nUFC-6l1VpJE';
+// Configuración global de GPTMaker
+window.GPTMAKER_CONFIG = {
+    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJncHRtYWtlciIsImlkIjoiM0U2MTZFMDQ2RDI3RTFDQjYyM0JGRTVFOUE2RTlCREUiLCJ0ZW5hbnQiOiIzRTYxNkUwNDZEMjdFMUNCNjIzQkZFNUU5QTZFOUJERSIsInV1aWQiOiJjMDU1NGM1Yy1mYjhiLTQ5YjUtOGRhMy1mZGEzMTc1MGZlZDgifQ.el1Rog4MU6G0UJ8tBzsWhhnecYoZ6n7nUFC-6l1VpJE',
+    baseURL: 'https://api.gptmaker.ai'
+};
 
 // Variable global para evitar inicialización múltiple
 window.dashboardInitialized = false;
@@ -11,16 +14,29 @@ window.dashboardInitialized = false;
 function checkAuthentication() {
     // Verificar si estamos en la página de login
     if (window.location.pathname.includes('login.html')) {
+        console.log('🏠 En página de login, permitiendo acceso');
         return true;
     }
     
+    // Verificar que AuthService esté disponible
+    if (!window.authService) {
+        console.warn('⚠️ AuthService no disponible, esperando...');
+        return false;
+    }
+    
     // Verificar autenticación
-    if (window.authService && window.authService.isAuthenticated()) {
+    const isAuthenticated = window.authService.isAuthenticated();
+    console.log('🔐 Estado de autenticación:', isAuthenticated ? 'Autenticado' : 'No autenticado');
+    
+    if (isAuthenticated) {
         console.log('✅ Usuario autenticado');
         return true;
     } else {
         console.log('❌ Usuario no autenticado, redirigiendo a login...');
-        window.location.href = 'login.html';
+        // Solo redirigir si no estamos ya en login
+        if (!window.location.pathname.includes('login.html')) {
+            window.location.href = 'login.html';
+        }
         return false;
     }
 }
@@ -64,7 +80,7 @@ function initializeDashboard() {
     // Inicializar el dashboard
     try {
         // Crear instancia de API primero
-        const api = new GPTMakerAPI(GPTMAKER_API_TOKEN);
+        const api = new GPTMakerAPI();
         const dataService = new DataService(api);
         const dashboard = new ChatbotDashboard(dataService);
         console.log('✅ Dashboard inicializado correctamente');
@@ -87,11 +103,37 @@ function initializeDashboard() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ DOM cargado, inicializando dashboard...');
     
-    // Inicializar inmediatamente si las dependencias están disponibles
-    if (typeof GPTMakerAPI !== 'undefined' && typeof DataService !== 'undefined' && typeof ChatbotDashboard !== 'undefined') {
+    // Función para verificar dependencias
+    function checkDependencies() {
+        const hasGPTMakerAPI = typeof GPTMakerAPI !== 'undefined';
+        const hasDataService = typeof DataService !== 'undefined';
+        const hasChatbotDashboard = typeof ChatbotDashboard !== 'undefined';
+        const hasAuthService = typeof window.authService !== 'undefined';
+        
+        console.log('📦 Dependencias:', {
+            GPTMakerAPI: hasGPTMakerAPI,
+            DataService: hasDataService,
+            ChatbotDashboard: hasChatbotDashboard,
+            AuthService: hasAuthService
+        });
+        
+        return hasGPTMakerAPI && hasDataService && hasChatbotDashboard && hasAuthService;
+    }
+    
+    // Intentar inicializar inmediatamente
+    if (checkDependencies()) {
+        console.log('✅ Todas las dependencias disponibles, inicializando...');
         initializeDashboard();
     } else {
-        // Esperar un poco para que las dependencias se carguen
-        setTimeout(initializeDashboard, 100);
+        console.log('⏳ Esperando dependencias...');
+        // Esperar más tiempo para que AuthService se cargue completamente
+        setTimeout(() => {
+            if (checkDependencies()) {
+                console.log('✅ Dependencias cargadas después del delay, inicializando...');
+                initializeDashboard();
+            } else {
+                console.error('❌ Algunas dependencias no se cargaron');
+            }
+        }, 500);
     }
 });

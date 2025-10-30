@@ -47,7 +47,11 @@ class AirtableService {
                         'role': userData.role || 'user',
                         'status': 'active',
                         'created_at': new Date().toISOString(),
-                        'has_paid': userData.hasPaid || false
+                        'has_paid': userData.hasPaid || false,
+                        // Campos para gestión de equipo (se crean si no existen)
+                        'is_team_member': userData.isTeamMember || false,
+                        'team_owner_email': userData.teamOwnerEmail || '',
+                        'member_role': userData.memberRole || ''
                     }
                 })
             });
@@ -183,6 +187,10 @@ class AirtableService {
             if (userData.status !== undefined) fields['status'] = userData.status;
             if (userData.hasPaid !== undefined) fields['has_paid'] = userData.hasPaid;
             if (userData.token_api !== undefined) fields['token_api'] = userData.token_api;
+            // Campos equipo
+            if (userData.isTeamMember !== undefined) fields['is_team_member'] = userData.isTeamMember;
+            if (userData.teamOwnerEmail !== undefined) fields['team_owner_email'] = userData.teamOwnerEmail;
+            if (userData.memberRole !== undefined) fields['member_role'] = userData.memberRole;
             
             console.log('📤 Campos que se enviarán a Airtable:', fields);
             
@@ -390,7 +398,11 @@ class AirtableService {
             hasPaid: fields.has_paid || false,
             token_api: fields.token_api || '',
             stripeCustomerId: fields.stripe_customer_id || fields.stripeCustomerId || '',
-            createdTime: record.createdTime
+            createdTime: record.createdTime,
+            // Campos de equipo
+            isTeamMember: fields.is_team_member || false,
+            teamOwnerEmail: fields.team_owner_email || '',
+            memberRole: fields.member_role || ''
         };
         
         console.log('✨ Usuario transformado:', transformedUser);
@@ -404,6 +416,70 @@ class AirtableService {
         // Nota: En producción, usar bcrypt o similar para hashear contraseñas
         // Por ahora, comparación simple
         return storedPassword === providedPassword;
+    }
+
+    // ===== MÉTODOS DE EQUIPO (usando misma tabla Users) =====
+
+    async getTeamMembers(ownerEmail) {
+        try {
+            if (!ownerEmail) throw new Error('ownerEmail es requerido');
+            const formula = encodeURIComponent(`AND({is_team_member} = 1, {team_owner_email} = '${ownerEmail}')`);
+            const url = `${this.apiBase}/${this.baseId}/${this.tableName}?filterByFormula=${formula}`;
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'Error obteniendo miembros del equipo');
+            }
+
+            const data = await response.json();
+            const members = (data.records || []).map(r => this.transformAirtableUser(r));
+            return { success: true, members };
+        } catch (error) {
+            console.error('❌ Error getTeamMembers:', error);
+            return { success: false, error: error.message, members: [] };
+        }
+    }
+
+    async addTeamMember(ownerEmail, memberData) {
+        try {
+            if (!ownerEmail) throw new Error('ownerEmail es requerido');
+            if (!memberData?.email) throw new Error('email del miembro es requerido');
+
+            const payload = {
+                email: memberData.email,
+                name: memberData.name,
+                firstName: memberData.firstName,
+                lastName: memberData.lastName,
+                role: 'user',
+                status: 'active',
+                isTeamMember: true,
+                teamOwnerEmail: ownerEmail,
+                memberRole: memberData.role || 'agent'
+            };
+
+            const result = await this.createUser(payload);
+            if (!result.success) throw new Error(result.error || 'No se pudo crear miembro');
+            return { success: true, member: result.user };
+        } catch (error) {
+            console.error('❌ Error addTeamMember:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async removeTeamMember(recordId) {
+        try {
+            if (!recordId) throw new Error('recordId es requerido');
+            const result = await this.deleteUser(recordId);
+            return result;
+        } catch (error) {
+            console.error('❌ Error removeTeamMember:', error);
+            return { success: false, error: error.message };
+        }
     }
 }
 

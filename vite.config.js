@@ -3,13 +3,14 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   root: '.',
   server: {
-    port: 3000,
+    port: 3004,
     open: true,
     host: true,
     proxy: {
       '/api': {
         target: 'https://api.gptmaker.ai',
         changeOrigin: true,
+        secure: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {

@@ -1,15 +1,61 @@
 // GPTMaker API Integration
 class GPTMakerAPI {
-    constructor() {
-        this.baseURL = '/api';
-        this.token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJncHRtYWtlciIsImlkIjoiM0U2MTZFMDQ2RDI3RTFDQjYyM0JGRTVFOUE2RTlCREUiLCJ0ZW5hbnQiOiIzRTYxNkUwNDZEMjdFMUNCNjIzQkZFNUU5QTZFOUJERSIsInV1aWQiOiJjMDU1NGM1Yy1mYjhiLTQ5YjUtOGRhMy1mZGEzMTc1MGZlZDgifQ.el1Rog4MU6G0UJ8tBzsWhhnecYoZ6n7nUFC-6l1VpJE';
+    constructor(token = null) {
+        // Usar configuración global si está disponible
+        if (window.gptmakerConfig) {
+            this.baseURL = window.gptmakerConfig.getBaseURL();
+            this.token = token || window.gptmakerConfig.getToken();
+        } else {
+            // Fallback a configuración manual
+            this.baseURL = 'https://api.gptmaker.ai';
+            this.token = token || this.getTokenFromStorage() || this.getTokenFromConfig();
+        }
+        
         this.cache = new Map();
         this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
         
         console.log('GPTMakerAPI inicializado con baseURL:', this.baseURL);
+        console.log('Token configurado:', this.token ? 'Sí' : 'No');
+        
+        // Validar token si está disponible
+        if (this.token && window.gptmakerConfig) {
+            const validation = window.gptmakerConfig.validateToken();
+            if (!validation.valid) {
+                console.warn('⚠️ Token inválido:', validation.error);
+            } else {
+                console.log('✅ Token válido');
+            }
+        }
+    }
+
+    getTokenFromStorage() {
+        return localStorage.getItem('gptmaker_token');
+    }
+
+    getTokenFromConfig() {
+        return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJncHRtYWtlciIsImlkIjoiM0U2MTZFMDQ2RDI3RTFDQjYyM0JGRTVFOUE2RTlCREUiLCJ0ZW5hbnQiOiIzRTYxNkUwNDZEMjdFMUNCNjIzQkZFNUU5QTZFOUJERSIsInV1aWQiOiJjMDU1NGM1Yy1mYjhiLTQ5YjUtOGRhMy1mZGEzMTc1MGZlZDgifQ.el1Rog4MU6G0UJ8tBzsWhhnecYoZ6n7nUFC-6l1VpJE';
+    }
+
+    setToken(token) {
+        this.token = token;
+        if (token) {
+            localStorage.setItem('gptmaker_token', token);
+        } else {
+            localStorage.removeItem('gptmaker_token');
+        }
     }
 
     async request(endpoint, options = {}) {
+        // Verificar que tenemos token
+        if (!this.token) {
+            console.error('❌ No hay token configurado para GPTMaker API');
+            return {
+                success: false,
+                error: 'No hay token configurado',
+                status: 401
+            };
+        }
+
         const url = `${this.baseURL}${endpoint}`;
         const config = {
             method: options.method || 'GET',
@@ -22,20 +68,43 @@ class GPTMakerAPI {
         };
 
         try {
+            console.log(`🌐 Realizando petición a: ${url}`);
             const response = await fetch(url, config);
             
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`❌ Error HTTP ${response.status}: ${response.statusText}`);
+                console.error(`❌ Respuesta del servidor: ${errorText}`);
+                
+                // Si es error 401, el token puede estar expirado o ser inválido
+                if (response.status === 401) {
+                    console.error('❌ Token inválido o expirado');
+                    localStorage.removeItem('gptmaker_token');
+                }
+                
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const data = await response.json();
+            console.log(`✅ Respuesta exitosa de ${url}`);
             return {
                 success: true,
                 data: data,
                 status: response.status
             };
         } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
+            console.error(`❌ Error en petición a ${url}:`, error);
+            
+            // Verificar si es un error de CORS o red
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                console.error('❌ Error de red o CORS. Verifica la configuración del servidor.');
+                return {
+                    success: false,
+                    error: 'Error de conexión. Verifica la configuración del servidor.',
+                    status: 0
+                };
+            }
+            
             return {
                 success: false,
                 error: error.message,

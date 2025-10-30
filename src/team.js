@@ -14,11 +14,14 @@ class TeamManager {
     constructor() {
         this.maxMembers = 3;
         this.teamMembers = [];
+        this.usingAirtable = false;
         this.init();
     }
 
-    init() {
-        this.loadTeamMembers();
+    async init() {
+        // Usar Airtable siempre que haya apiKey, incluso en localhost
+        this.usingAirtable = !!(window.airtableService && window.airtableService.apiKey);
+        await this.loadTeamMembers();
         this.setupEventListeners();
         this.updateTeamUI();
     }
@@ -32,21 +35,41 @@ class TeamManager {
         }
     }
 
-    loadTeamMembers() {
-        // Cargar miembros del equipo desde localStorage
-        const savedTeam = localStorage.getItem('teamMembers');
-        if (savedTeam) {
+    async loadTeamMembers() {
+        if (this.usingAirtable) {
             try {
-                this.teamMembers = JSON.parse(savedTeam);
-                console.log('✅ Miembros del equipo cargados:', this.teamMembers);
+                const owner = window.authService?.getCurrentUser();
+                const ownerEmail = owner?.email;
+                if (!ownerEmail) {
+                    console.warn('⚠️ No hay email del propietario para cargar equipo');
+                    this.teamMembers = [];
+                    return;
+                }
+                const result = await window.airtableService.getTeamMembers(ownerEmail);
+                this.teamMembers = (result.success && Array.isArray(result.members)) ? result.members : [];
+                console.log('✅ Miembros del equipo (Airtable):', this.teamMembers);
             } catch (error) {
-                console.error('❌ Error cargando miembros del equipo:', error);
+                console.error('❌ Error cargando equipo desde Airtable:', error);
+                // En modo Airtable, si hay error, mostrar vacío (no datos locales)
                 this.teamMembers = [];
+            }
+        } else {
+            // Cargar miembros del equipo desde localStorage
+            const savedTeam = localStorage.getItem('teamMembers');
+            if (savedTeam) {
+                try {
+                    this.teamMembers = JSON.parse(savedTeam);
+                    console.log('✅ Miembros del equipo cargados:', this.teamMembers);
+                } catch (error) {
+                    console.error('❌ Error cargando miembros del equipo:', error);
+                    this.teamMembers = [];
+                }
             }
         }
     }
 
     saveTeamMembers() {
+        if (this.usingAirtable) return; // En Airtable no guardamos en localStorage
         localStorage.setItem('teamMembers', JSON.stringify(this.teamMembers));
         console.log('💾 Miembros del equipo guardados');
     }
@@ -153,16 +176,6 @@ class TeamManager {
                     </div>
                     <form id="inviteMemberForm">
                         <div class="form-group">
-                            <label for="memberName">Nombre Completo</label>
-                            <input 
-                                type="text" 
-                                id="memberName" 
-                                class="form-input" 
-                                placeholder="Ej: Juan Pérez García"
-                                required
-                            >
-                        </div>
-                        <div class="form-group">
                             <label for="memberEmail">Correo Electrónico</label>
                             <input 
                                 type="email" 
@@ -215,38 +228,99 @@ class TeamManager {
         const formData = new FormData(form);
         const memberData = {
             id: Date.now().toString(),
-            name: formData.get('memberName'),
             email: formData.get('memberEmail'),
+            // Derivar nombre a partir del email (antes de @) si no existe
+            name: (formData.get('memberEmail') || '').split('@')[0],
             role: formData.get('memberRole'),
             invitedAt: new Date().toISOString(),
             status: 'active'
         };
 
-        // Agregar miembro al equipo
-        this.teamMembers.push(memberData);
-        this.saveTeamMembers();
-        this.updateTeamUI();
+        try {
+            if (this.usingAirtable) {
+                const ownerEmail = window.authService?.getCurrentUser()?.email;
+                const result = await window.airtableService.addTeamMember(ownerEmail, {
+                    email: memberData.email,
+                    name: memberData.name,
+                    role: memberData.role
+                });
+                if (!result.success) throw new Error(result.error || 'No se pudo agregar');
+                // Recargar desde Airtable para asegurar datos reales
+                await this.loadTeamMembers();
+            } else {
+                // Agregar miembro al equipo localmente
+                this.teamMembers.push(memberData);
+                this.saveTeamMembers();
+            }
+            this.updateTeamUI();
 
-        // Cerrar modal
-        modal.remove();
+            // Cerrar modal
+            modal.remove();
 
-        // Mostrar notificación de éxito
-        this.showNotification(`${memberData.name} ha sido agregado al equipo`, 'success');
-
-        console.log('✅ Miembro agregado:', memberData);
+            // Mostrar notificación de éxito
+            this.showNotification(`${memberData.name} ha sido agregado al equipo`, 'success');
+            console.log('✅ Miembro agregado');
+        } catch (error) {
+            console.error('❌ Error agregando miembro:', error);
+            // Fallback: guardar localmente para no bloquear el flujo
+            if (!this.usingAirtable) {
+                this.teamMembers.push(memberData);
+                this.saveTeamMembers();
+                this.updateTeamUI();
+                this.showNotification('Miembro guardado localmente', 'warning');
+            } else {
+                this.showNotification(error.message || 'Error agregando miembro', 'error');
+            }
+        }
     }
 
-    removeMember(memberId) {
+    async removeMember(memberId) {
         const member = this.teamMembers.find(m => m.id === memberId);
         if (!member) return;
 
-        if (confirm(`¿Estás seguro de eliminar a ${member.name} del equipo?`)) {
-            this.teamMembers = this.teamMembers.filter(m => m.id !== memberId);
-            this.saveTeamMembers();
+        if (!confirm(`¿Estás seguro de eliminar a ${member.name} del equipo?`)) return;
+
+        try {
+            if (this.usingAirtable && memberId) {
+                const result = await window.airtableService.removeTeamMember(memberId);
+                if (!result.success) throw new Error(result.error || 'No se pudo eliminar en Airtable');
+                // Recargar desde Airtable
+                await this.loadTeamMembers();
+            } else {
+                this.teamMembers = this.teamMembers.filter(m => m.id !== memberId);
+                this.saveTeamMembers();
+            }
             this.updateTeamUI();
             this.showNotification(`${member.name} ha sido eliminado del equipo`, 'info');
             console.log('🗑️ Miembro eliminado:', member);
+        } catch (error) {
+            console.error('❌ Error eliminando miembro:', error);
+            this.showNotification(error.message || 'Error eliminando miembro', 'error');
         }
+    }
+
+    // Asignación simple: envía email al miembro asignado
+    assignToMember(memberEmail, assignment) {
+        const member = this.teamMembers.find(m => m.email === memberEmail);
+        if (!member) {
+            this.showNotification('Miembro no encontrado', 'error');
+            return;
+        }
+
+        const subject = encodeURIComponent(assignment?.subject || `Nueva asignación`);
+        const owner = window.authService?.getCurrentUser();
+        const ownerName = owner?.name || owner?.email || 'Administrador';
+        const body = encodeURIComponent(
+            `${assignment?.message || 'Tienes una nueva asignación.'}\n\n` +
+            (assignment?.details ? `${assignment.details}\n\n` : '') +
+            `Asignado por: ${ownerName}\nFecha: ${new Date().toLocaleString('es-ES')}`
+        );
+
+        const mailto = `mailto:${member.email}?subject=${subject}&body=${body}`;
+        // Abrir cliente de correo del sistema
+        window.location.href = mailto;
+
+        this.showNotification(`Email de asignación preparado para ${member.name}`, 'success');
     }
 
     // Método para notificar al equipo sobre un cliente calificado
@@ -278,14 +352,12 @@ class TeamManager {
             );
 
             const mailtoLink = `mailto:${member.email}?subject=${subject}&body=${body}`;
-            
-            console.log(`📧 Preparando notificación para ${member.name} (${member.email})`);
-            
-            // Nota: En producción, esto debería ser un envío real de correo desde el backend
-            // Por ahora, guardamos la notificación para enviarla manualmente o con un servicio
+            // Abrir cliente de correo (uno por vez)
+            window.location.href = mailtoLink;
+            console.log(`📧 Notificación disparada para ${member.name} (${member.email})`);
         });
 
-        this.showNotification(`Notificación preparada para ${this.teamMembers.length} miembro(s) del equipo`, 'success');
+        this.showNotification(`Emails de notificación disparados a ${this.teamMembers.length} miembro(s)`, 'success');
     }
 
     showNotification(message, type = 'info') {
@@ -327,12 +399,20 @@ class TeamManager {
         console.log('✅ TeamManager reinicializado forzadamente');
     }
 
-// Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-    // Inicializar TeamManager
-    window.teamManager = new TeamManager();
-    console.log('✅ TeamManager inicializado');
-    
+// Inicializar TeamManager de forma robusta (funciona si el DOM ya está listo)
+(function initTeamManager() {
+    function bootstrap() {
+        if (!window.teamManager) {
+            window.teamManager = new TeamManager();
+            console.log('✅ TeamManager inicializado');
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+        bootstrap();
+    }
+
     // Reinicializar cuando se accede a la sección de equipo
     document.addEventListener('click', (e) => {
         const navItem = e.target.closest('[data-section="team"]');
@@ -345,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 100);
         }
     });
-});
+})();
 
 // Función global para reinicializar manualmente si es necesario
 window.reinitializeTeam = () => {

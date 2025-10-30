@@ -7,6 +7,10 @@
   "framework": null,
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "https://api.gptmaker.ai/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }
