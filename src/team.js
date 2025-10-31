@@ -92,7 +92,6 @@ class TeamManager {
         if (window.dashboard && typeof window.dashboard.updateOverviewStats === 'function') {
             window.dashboard.updateOverviewStats();
         }
-    }
 
         // Actualizar lista de miembros
         this.renderTeamMembers();
@@ -398,6 +397,8 @@ class TeamManager {
         this.updateTeamUI();
         console.log('✅ TeamManager reinicializado forzadamente');
     }
+
+}
 
 // Inicializar TeamManager de forma robusta (funciona si el DOM ya está listo)
 (function initTeamManager() {

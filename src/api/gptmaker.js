@@ -129,6 +129,14 @@ class GPTMakerAPI {
         return null;
     }
 
+    clearCacheByPrefix(prefix) {
+        for (const key of this.cache.keys()) {
+            if (key.startsWith(prefix)) {
+                this.cache.delete(key);
+            }
+        }
+    }
+
     // Get agent trainings
     async getAgentTrainings(agentId, options = {}) {
         const cacheKey = `trainings-${agentId}`;
@@ -509,27 +517,6 @@ class GPTMakerAPI {
         }
     }
 
-    // Delete chat
-    async deleteChat(chatId) {
-        try {
-            console.log(`🗑️ Eliminando chat: ${chatId}`);
-            
-            const result = await this.request(`/v2/chat/${chatId}`, {
-                method: 'DELETE'
-            });
-            
-            if (result.success) {
-                console.log(`✅ Chat ${chatId} eliminado exitosamente`);
-                return { success: true, message: 'Chat eliminado exitosamente' };
-            } else {
-                throw new Error('No se pudo eliminar el chat');
-            }
-        } catch (error) {
-            console.error('❌ Error eliminando chat:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
     // Get ALL chat messages with pagination
     async getAllChatMessages(chatId, options = {}) {
         try {
@@ -906,15 +893,16 @@ class GPTMakerAPI {
         try {
             console.log(`🗑️ Eliminando chat: ${chatId}`);
             
-            const result = await this.request(`/v2/conversation/${chatId}`, {
+            const result = await this.request(`/v2/chat/${chatId}`, {
                 method: 'DELETE'
             });
             
             if (result.success) {
                 console.log(`✅ Chat ${chatId} eliminado exitosamente`);
-                // Limpiar cache de chats
-                this.cache.delete('chats');
-                return result;
+                // Limpiar cache de chats y mensajes relacionados
+                this.clearCacheByPrefix('chats-');
+                this.cache.delete(`messages-${chatId}`);
+                return { success: true, message: 'Chat eliminado exitosamente' };
             } else {
                 throw new Error('No se pudo eliminar el chat');
             }
@@ -936,7 +924,7 @@ class GPTMakerAPI {
             if (result.success) {
                 console.log(`✅ Atendimiento humano asumido para el chat ${chatId}`);
                 // Limpiar cache de chats
-                this.cache.delete('chats');
+                this.clearCacheByPrefix('chats-');
                 return result;
             } else {
                 throw new Error('No se pudo asumir el atendimiento');
@@ -962,7 +950,7 @@ class GPTMakerAPI {
             if (result.success) {
                 console.log(`✅ Mensaje enviado exitosamente al chat ${chatId}`);
                 // Limpiar cache de chats y mensajes
-                this.cache.delete('chats');
+                this.clearCacheByPrefix('chats-');
                 this.cache.delete(`messages-${chatId}`);
                 return result;
             } else {
