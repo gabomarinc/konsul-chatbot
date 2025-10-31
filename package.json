@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "description": "Dashboard web marca blanca para SaaS de chatbots AI",
   "scripts": {
-    "dev": "npx http-server . -p 3004 -c-1 --cors",
-    "serve": "npx http-server . -p 3005 -c-1 --cors",
-    "start": "npx http-server . -p 3004 -c-1 --cors"
+    "dev": "vite",
+    "build": "vite build",
+    "postbuild": "node scripts/postbuild.js",
+    "preview": "vite preview",
+    "serve": "npx http-server dist -p 3005 -c-1 --cors"
   },
   "keywords": [
     "chatbot",
@@ -19,7 +21,8 @@
   "author": "Tu Empresa",
   "license": "MIT",
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "vite": "^7.1.12"
   },
   "engines": {
     "node": ">=16.0.0",
