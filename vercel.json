@@ -5,14 +5,10 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": null,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "https://api.gptmaker.ai/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/api/:path*",
+      "destination": "https://api.gptmaker.ai/:path*"
     }
   ],
   "headers": [
