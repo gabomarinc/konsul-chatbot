@@ -96,7 +96,7 @@ stripe.config.js
 
 # Development config files (sensitive data)
 src/config/dev.config.js
-src/config/airtable.init.js
+# Nota: airtable.init.js ya no está en .gitignore porque ahora lee de variables de entorno
 
 # Backend files (optional - remove if you want to version control them)
 backend-example.js
