@@ -26,17 +26,35 @@ class BillingManager {
         }
     }
 
-    // Cargar todos los datos de facturación
+    // Cargar todos los datos de facturación DIRECTAMENTE de Stripe
     async loadBillingData() {
         try {
-            console.log('📊 Cargando datos de facturación...');
+            console.log('📊 Cargando datos de facturación desde Stripe...');
             
-            // Cargar datos en paralelo
-            const [customerInfo, subscriptions, invoices, paymentMethods] = await Promise.all([
-                this.stripeService.getCustomerInfo(),
-                this.stripeService.getSubscriptions(),
-                this.stripeService.getInvoices(),
-                this.stripeService.getPaymentMethods()
+            // Cargar datos en paralelo (customerInfo puede fallar, así que lo manejamos por separado)
+            let customerInfo = null;
+            try {
+                customerInfo = await this.stripeService.getCustomerInfo();
+            } catch (error) {
+                console.error('❌ Error obteniendo información del cliente:', error);
+                this.showErrorMessage('No se pudo obtener la información del cliente de Stripe. Verifica que el stripe_customer_id esté configurado en Airtable.');
+                return; // Si no hay customerInfo, no podemos continuar
+            }
+            
+            // Cargar el resto de datos en paralelo
+            const [subscriptions, invoices, paymentMethods] = await Promise.all([
+                this.stripeService.getSubscriptions().catch(err => {
+                    console.error('Error obteniendo suscripciones:', err);
+                    return [];
+                }),
+                this.stripeService.getInvoices().catch(err => {
+                    console.error('Error obteniendo facturas:', err);
+                    return [];
+                }),
+                this.stripeService.getPaymentMethods().catch(err => {
+                    console.error('Error obteniendo métodos de pago:', err);
+                    return [];
+                })
             ]);
 
             this.customerInfo = customerInfo;
@@ -47,10 +65,10 @@ class BillingManager {
             // Renderizar la UI
             this.renderBillingUI();
             
-            console.log('✅ Datos de facturación cargados correctamente');
+            console.log('✅ Datos de facturación cargados correctamente desde Stripe');
         } catch (error) {
             console.error('❌ Error cargando datos de facturación:', error);
-            this.showErrorMessage('Error cargando datos de facturación');
+            this.showErrorMessage('Error cargando datos de facturación desde Stripe');
         }
     }
 
@@ -103,11 +121,11 @@ class BillingManager {
                         </div>
                         <div class="info-item">
                             <label>Email:</label>
-                            <span class="info-value">${this.customerInfo.email}</span>
+                            <span class="info-value">${this.customerInfo.email || 'N/A'}</span>
                         </div>
                         <div class="info-item">
                             <label>Nombre:</label>
-                            <span class="info-value">${this.customerInfo.name}</span>
+                            <span class="info-value">${this.customerInfo.name || 'N/A'}</span>
                         </div>
                         <div class="info-item">
                             <label>Fecha de Registro:</label>
@@ -155,20 +173,29 @@ class BillingManager {
         }
 
         const subscriptionsHTML = this.subscriptions.map(subscription => {
-            // Manejar diferentes estructuras de datos de Stripe
+            // Obtener datos DIRECTAMENTE de Stripe (sin fallbacks)
             const items = subscription.items?.data || subscription.items || [];
             const firstItem = items[0] || {};
             const price = firstItem.price || {};
             const product = price.product || {};
             
-            // Si el producto viene como string (ID), intentar obtener el nombre del objeto expandido
-            const productName = typeof product === 'string' 
-                ? (subscription.metadata?.product_name || 'Plan Premium')
-                : (product.name || subscription.metadata?.product_name || 'Plan Premium');
+            // Obtener nombre del producto REAL de Stripe
+            // El producto debería estar expandido por la función serverless
+            let productName = 'N/A';
+            if (typeof product === 'object' && product.name) {
+                productName = product.name; // Nombre real de Stripe (ej: "Agente IA - Plan Starter")
+            } else if (typeof product === 'string') {
+                // Si viene como ID, intentar obtener de metadata o usar el ID
+                productName = subscription.metadata?.product_name || product;
+            }
             
-            const productDescription = typeof product === 'string'
-                ? (subscription.metadata?.product_description || 'Plan con todas las funcionalidades')
-                : (product.description || subscription.metadata?.product_description || 'Plan con todas las funcionalidades');
+            // Obtener descripción del producto REAL de Stripe
+            let productDescription = '';
+            if (typeof product === 'object' && product.description) {
+                productDescription = product.description; // Descripción real de Stripe
+            } else {
+                productDescription = subscription.metadata?.product_description || '';
+            }
             
             const statusColor = this.stripeService.getStatusColor(subscription.status, 'subscription');
             const statusText = this.stripeService.getSubscriptionStatusText(subscription.status);

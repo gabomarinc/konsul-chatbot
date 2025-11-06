@@ -25,10 +25,14 @@ module.exports = async (req, res) => {
         console.log(`🔍 Obteniendo suscripciones para cliente: ${customerId}`);
 
         // Obtener suscripciones del cliente desde Stripe
+        // Expandir el producto para obtener nombre y descripción reales
         const subscriptions = await stripe.subscriptions.list({
             customer: customerId,
             status: 'all', // Obtener todas las suscripciones (active, canceled, etc.)
-            expand: ['data.default_payment_method', 'data.items.data.price.product']
+            expand: [
+                'data.default_payment_method',
+                'data.items.data.price.product' // Expandir el producto para obtener nombre y descripción
+            ]
         });
 
         console.log(`✅ ${subscriptions.data.length} suscripción(es) encontrada(s)`);
