@@ -66,7 +66,6 @@ class StripeService {
                     'Content-Type': 'application/json',
                     ...options.headers
                 },
-                timeout: 5000, // 5 segundos de timeout
                 ...options
             };
 
@@ -77,24 +76,43 @@ class StripeService {
             }
 
             console.log(`🔄 Haciendo petición segura a: ${url}`);
+            console.log('   Método:', config.method);
+            console.log('   Headers:', config.headers);
             
-            // Crear un timeout manual
+            // Crear un timeout manual (aumentado a 10 segundos)
             const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Timeout: Backend no responde')), 5000);
+                setTimeout(() => reject(new Error('Timeout: Backend no responde después de 10 segundos')), 10000);
             });
             
             const fetchPromise = fetch(url, config);
             const response = await Promise.race([fetchPromise, timeoutPromise]);
             
+            console.log('📡 Respuesta recibida:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok
+            });
+            
             if (!response.ok) {
-                throw new Error(`Error ${response.status}: ${response.statusText}`);
+                const errorText = await response.text();
+                console.error('❌ Error en respuesta:', errorText);
+                throw new Error(`Error ${response.status}: ${response.statusText} - ${errorText}`);
             }
 
             const data = await response.json();
-            console.log('✅ Respuesta del backend:', data);
+            console.log('✅ Respuesta del backend exitosa');
             return data;
         } catch (error) {
             console.error('❌ Error en petición segura:', error);
+            console.error('   Tipo:', error.name);
+            console.error('   Mensaje:', error.message);
+            
+            // Manejar errores específicos
+            if (error.message.includes('Failed to fetch') || error.message.includes('ERR_BLOCKED_BY_CLIENT')) {
+                console.error('⚠️ Posible bloqueo por extensión del navegador o CORS');
+                console.error('💡 Solución: Desactiva ad-blockers o extensiones de privacidad que puedan bloquear Stripe');
+            }
+            
             throw error;
         }
     }
@@ -106,14 +124,40 @@ class StripeService {
             
             // Obtener SOLO el stripe_customer_id del usuario autenticado (único dato de Airtable)
             const currentUser = window.authService?.getCurrentUser();
-            const stripeCustomerId = currentUser?.stripeCustomerId;
+            
+            if (!currentUser) {
+                console.error('❌ No hay usuario autenticado');
+                throw new Error('Usuario no autenticado');
+            }
+            
+            console.log('👤 Usuario actual:', {
+                email: currentUser.email,
+                id: currentUser.id,
+                stripeCustomerId: currentUser.stripeCustomerId || 'NO ENCONTRADO'
+            });
+            
+            // Verificar todos los campos posibles del usuario
+            const possibleStripeFields = [
+                currentUser.stripeCustomerId,
+                currentUser.stripe_customer_id,
+                currentUser.StripeCustomerId,
+                currentUser['stripe_customer_id'],
+                currentUser['StripeCustomerId']
+            ];
+            
+            const stripeCustomerId = possibleStripeFields.find(id => id && id.trim() !== '');
             
             if (!stripeCustomerId) {
                 console.error('❌ Usuario no tiene stripe_customer_id configurado en Airtable');
-                console.log('💡 Para mostrar datos de Stripe, agrega el campo "stripe_customer_id" en Airtable con el ID del cliente de Stripe');
+                console.log('📋 Campos disponibles en el usuario:', Object.keys(currentUser));
+                console.log('💡 Para mostrar datos de Stripe:');
+                console.log('   1. Ejecuta: debugStripeCustomerId() en la consola');
+                console.log('   2. Verifica el nombre exacto del campo en Airtable');
+                console.log('   3. Asegúrate de que el campo tenga un valor (ej: cus_THw3cWvDfKwj5g)');
                 throw new Error('stripe_customer_id no configurado en Airtable');
             }
             
+            console.log('✅ stripe_customer_id encontrado:', stripeCustomerId);
             console.log('🔍 Obteniendo datos de Stripe para customer:', stripeCustomerId);
             
             // Obtener datos REALES directamente de Stripe (sin fallbacks)
@@ -135,6 +179,11 @@ class StripeService {
             
         } catch (error) {
             console.error('❌ Error obteniendo información del cliente de Stripe:', error);
+            console.error('   Tipo de error:', error.name);
+            console.error('   Mensaje:', error.message);
+            if (error.stack) {
+                console.error('   Stack:', error.stack);
+            }
             throw error; // Propagar el error en lugar de devolver null
         }
     }

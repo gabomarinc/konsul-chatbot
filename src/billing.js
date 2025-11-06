@@ -31,13 +31,41 @@ class BillingManager {
         try {
             console.log('📊 Cargando datos de facturación desde Stripe...');
             
+            // Verificar usuario primero
+            const currentUser = window.authService?.getCurrentUser();
+            if (!currentUser) {
+                console.error('❌ No hay usuario autenticado');
+                this.showErrorMessage('No hay usuario autenticado. Por favor, inicia sesión.');
+                return;
+            }
+            
+            console.log('👤 Usuario autenticado:', currentUser.email);
+            console.log('🔍 Verificando stripe_customer_id...');
+            
             // Cargar datos en paralelo (customerInfo puede fallar, así que lo manejamos por separado)
             let customerInfo = null;
             try {
                 customerInfo = await this.stripeService.getCustomerInfo();
             } catch (error) {
                 console.error('❌ Error obteniendo información del cliente:', error);
-                this.showErrorMessage('No se pudo obtener la información del cliente de Stripe. Verifica que el stripe_customer_id esté configurado en Airtable.');
+                
+                // Mensaje de error más específico
+                let errorMessage = 'No se pudo obtener la información del cliente de Stripe.';
+                
+                if (error.message.includes('stripe_customer_id no configurado')) {
+                    errorMessage += '\n\nEl campo stripe_customer_id no está configurado en Airtable.';
+                    errorMessage += '\n\nPara solucionarlo:';
+                    errorMessage += '\n1. Ejecuta: debugStripeCustomerId() en la consola';
+                    errorMessage += '\n2. Verifica el nombre exacto del campo en Airtable';
+                    errorMessage += '\n3. Asegúrate de que el campo tenga un valor (ej: cus_THw3cWvDfKwj5g)';
+                } else if (error.message.includes('ERR_BLOCKED_BY_CLIENT') || error.message.includes('Failed to fetch')) {
+                    errorMessage += '\n\nPosible bloqueo por extensión del navegador.';
+                    errorMessage += '\n\nSolución: Desactiva ad-blockers o extensiones de privacidad.';
+                } else {
+                    errorMessage += `\n\nError: ${error.message}`;
+                }
+                
+                this.showErrorMessage(errorMessage);
                 return; // Si no hay customerInfo, no podemos continuar
             }
             
