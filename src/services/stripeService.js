@@ -109,19 +109,20 @@ class StripeService {
             const stripeCustomerId = currentUser?.stripeCustomerId;
             
             if (!stripeCustomerId) {
-                console.warn('⚠️ Usuario no tiene stripe_customer_id configurado');
+                console.warn('⚠️ Usuario no tiene stripe_customer_id configurado en Airtable');
+                console.log('💡 Para mostrar datos reales de Stripe, agrega el campo "stripe_customer_id" en Airtable con el ID del cliente de Stripe');
                 
                 // Fallback a datos simulados si no hay stripe_customer_id
-            const customerInfo = {
-                id: 'cus_demo123',
+                const customerInfo = {
+                    id: 'cus_demo123',
                     email: currentUser?.email || 'admin@example.com',
-                    name: currentUser?.name || 'Usuario Demo',
-                    created: new Date().toISOString(),
+                    name: currentUser?.name || currentUser?.company || 'Usuario Demo',
+                    created: currentUser?.createdAt ? new Date(currentUser.createdAt).toISOString() : new Date().toISOString(),
                     currency: 'usd',
                     default_source: null,
                     delinquent: false,
                     metadata: {
-                        company: 'Konsul Digital'
+                        company: currentUser?.company || 'Konsul Digital'
                     }
                 };
 
@@ -135,29 +136,37 @@ class StripeService {
             // Intentar obtener datos reales del backend usando el stripe_customer_id
             try {
                 const customerInfo = await this.makeSecureRequest(`/customer/${stripeCustomerId}`);
-                this.customerId = customerInfo.id;
-                console.log('✅ Información del cliente obtenida desde backend:', customerInfo);
-                return customerInfo;
-            } catch (backendError) {
-                console.warn('⚠️ Backend no disponible, usando datos simulados:', backendError.message);
                 
-                // Fallback a datos simulados si el backend no está disponible
+                // Validar que la respuesta tenga la estructura esperada
+                if (customerInfo && customerInfo.id) {
+                    this.customerId = customerInfo.id;
+                    console.log('✅ Información del cliente obtenida desde backend:', customerInfo);
+                    return customerInfo;
+                } else {
+                    throw new Error('Respuesta inválida del backend');
+                }
+            } catch (backendError) {
+                console.warn('⚠️ Backend no disponible o error:', backendError.message);
+                console.log('💡 Para obtener datos reales de Stripe, implementa un backend con los endpoints de /api/stripe');
+                console.log('📖 Ver archivo backend-example.js para referencia');
+                
+                // Fallback a datos simulados pero usando el ID real
                 const customerInfo = {
                     id: stripeCustomerId,
                     email: currentUser?.email || 'admin@example.com',
-                    name: currentUser?.name || 'Usuario Demo',
-                created: new Date().toISOString(),
-                currency: 'usd',
-                default_source: null,
-                delinquent: false,
-                metadata: {
-                    company: 'Konsul Digital'
-                }
-            };
+                    name: currentUser?.name || currentUser?.company || 'Usuario Demo',
+                    created: currentUser?.createdAt ? new Date(currentUser.createdAt).toISOString() : new Date().toISOString(),
+                    currency: 'usd',
+                    default_source: null,
+                    delinquent: false,
+                    metadata: {
+                        company: currentUser?.company || 'Konsul Digital'
+                    }
+                };
 
-            this.customerId = customerInfo.id;
+                this.customerId = customerInfo.id;
                 console.log('✅ Información del cliente obtenida (simulada con ID real):', customerInfo);
-            return customerInfo;
+                return customerInfo;
             }
         } catch (error) {
             console.error('❌ Error obteniendo información del cliente:', error);
@@ -184,44 +193,55 @@ class StripeService {
             // Intentar obtener datos reales del backend usando el stripe_customer_id
             try {
                 const subscriptions = await this.makeSecureRequest(`/subscriptions/${stripeCustomerId}`);
-                this.subscriptions = subscriptions;
-                console.log('✅ Suscripciones obtenidas desde backend:', subscriptions);
-                return subscriptions;
+                
+                // Validar que la respuesta sea un array
+                if (Array.isArray(subscriptions)) {
+                    this.subscriptions = subscriptions;
+                    console.log(`✅ ${subscriptions.length} suscripción(es) obtenida(s) desde backend:`, subscriptions);
+                    return subscriptions;
+                } else if (subscriptions && subscriptions.data && Array.isArray(subscriptions.data)) {
+                    // Si viene en formato { data: [...] }
+                    this.subscriptions = subscriptions.data;
+                    console.log(`✅ ${subscriptions.data.length} suscripción(es) obtenida(s) desde backend:`, subscriptions.data);
+                    return subscriptions.data;
+                } else {
+                    throw new Error('Formato de respuesta inválido');
+                }
             } catch (backendError) {
                 console.warn('⚠️ Backend no disponible, usando datos simulados:', backendError.message);
                 
                 // Fallback a datos simulados si el backend no está disponible
-            const subscriptions = [
-                {
-                    id: 'sub_demo123',
-                    status: 'active',
-                    current_period_start: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).getTime() / 1000,
-                    current_period_end: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).getTime() / 1000,
-                    cancel_at_period_end: false,
+                const subscriptions = [
+                    {
+                        id: 'sub_demo123',
+                        status: 'active',
+                        current_period_start: Math.floor((Date.now() - 15 * 24 * 60 * 60 * 1000) / 1000),
+                        current_period_end: Math.floor((Date.now() + 15 * 24 * 60 * 60 * 1000) / 1000),
+                        cancel_at_period_end: false,
                         customer: stripeCustomerId,
-                    items: {
-                        data: [{
-                            price: {
-                                id: 'price_demo123',
-                                unit_amount: 2999, // $29.99
-                                currency: 'usd',
-                                recurring: {
-                                    interval: 'month'
-                                },
-                                product: {
-                                    id: 'prod_demo123',
-                                    name: 'Plan Premium',
-                                    description: 'Plan premium con todas las funcionalidades'
+                        items: {
+                            data: [{
+                                price: {
+                                    id: 'price_demo123',
+                                    unit_amount: 2999, // $29.99
+                                    currency: 'usd',
+                                    recurring: {
+                                        interval: 'month'
+                                    },
+                                    product: {
+                                        id: 'prod_demo123',
+                                        name: 'Plan Premium',
+                                        description: 'Plan premium con todas las funcionalidades'
+                                    }
                                 }
-                            }
-                        }]
+                            }]
+                        }
                     }
-                }
-            ];
+                ];
 
-            this.subscriptions = subscriptions;
+                this.subscriptions = subscriptions;
                 console.log('✅ Suscripciones obtenidas (simuladas):', subscriptions);
-            return subscriptions;
+                return subscriptions;
             }
         } catch (error) {
             console.error('❌ Error obteniendo suscripciones:', error);
@@ -248,67 +268,78 @@ class StripeService {
             // Intentar obtener datos reales del backend usando el stripe_customer_id
             try {
                 const invoices = await this.makeSecureRequest(`/invoices/${stripeCustomerId}`);
-                this.invoices = invoices;
-                console.log('✅ Facturas obtenidas desde backend:', invoices);
-                return invoices;
+                
+                // Validar que la respuesta sea un array
+                if (Array.isArray(invoices)) {
+                    this.invoices = invoices;
+                    console.log(`✅ ${invoices.length} factura(s) obtenida(s) desde backend:`, invoices);
+                    return invoices;
+                } else if (invoices && invoices.data && Array.isArray(invoices.data)) {
+                    // Si viene en formato { data: [...] }
+                    this.invoices = invoices.data;
+                    console.log(`✅ ${invoices.data.length} factura(s) obtenida(s) desde backend:`, invoices.data);
+                    return invoices.data;
+                } else {
+                    throw new Error('Formato de respuesta inválido');
+                }
             } catch (backendError) {
                 console.warn('⚠️ Backend no disponible, usando datos simulados:', backendError.message);
                 
                 // Fallback a datos simulados si el backend no está disponible
-            const invoices = [
-                {
-                    id: 'in_demo123',
-                    number: 'INV-001',
-                    status: 'paid',
-                    amount_paid: 2999,
-                    amount_due: 2999,
-                    currency: 'usd',
+                const invoices = [
+                    {
+                        id: 'in_demo123',
+                        number: 'INV-001',
+                        status: 'paid',
+                        amount_paid: 2999,
+                        amount_due: 2999,
+                        currency: 'usd',
                         customer: stripeCustomerId,
-                    created: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).getTime() / 1000,
-                    due_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).getTime() / 1000,
-                    hosted_invoice_url: '#',
-                    invoice_pdf: '#',
-                    lines: {
-                        data: [{
-                            description: 'Plan Premium - Mensual',
-                            amount: 2999,
-                            currency: 'usd',
-                            period: {
-                                start: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).getTime() / 1000,
-                                end: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).getTime() / 1000
-                            }
-                        }]
-                    }
-                },
-                {
-                    id: 'in_demo124',
-                    number: 'INV-002',
-                    status: 'open',
-                    amount_paid: 0,
-                    amount_due: 2999,
-                    currency: 'usd',
+                        created: Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000),
+                        due_date: Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000),
+                        hosted_invoice_url: '#',
+                        invoice_pdf: '#',
+                        lines: {
+                            data: [{
+                                description: 'Plan Premium - Mensual',
+                                amount: 2999,
+                                currency: 'usd',
+                                period: {
+                                    start: Math.floor((Date.now() - 60 * 24 * 60 * 60 * 1000) / 1000),
+                                    end: Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000)
+                                }
+                            }]
+                        }
+                    },
+                    {
+                        id: 'in_demo124',
+                        number: 'INV-002',
+                        status: 'open',
+                        amount_paid: 0,
+                        amount_due: 2999,
+                        currency: 'usd',
                         customer: stripeCustomerId,
-                    created: new Date().getTime() / 1000,
-                    due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).getTime() / 1000,
-                    hosted_invoice_url: '#',
-                    invoice_pdf: '#',
-                    lines: {
-                        data: [{
-                            description: 'Plan Premium - Mensual',
-                            amount: 2999,
-                            currency: 'usd',
-                            period: {
-                                start: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).getTime() / 1000,
-                                end: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).getTime() / 1000
-                            }
-                        }]
+                        created: Math.floor(Date.now() / 1000),
+                        due_date: Math.floor((Date.now() + 15 * 24 * 60 * 60 * 1000) / 1000),
+                        hosted_invoice_url: '#',
+                        invoice_pdf: '#',
+                        lines: {
+                            data: [{
+                                description: 'Plan Premium - Mensual',
+                                amount: 2999,
+                                currency: 'usd',
+                                period: {
+                                    start: Math.floor((Date.now() - 15 * 24 * 60 * 60 * 1000) / 1000),
+                                    end: Math.floor((Date.now() + 15 * 24 * 60 * 60 * 1000) / 1000)
+                                }
+                            }]
+                        }
                     }
-                }
-            ];
+                ];
 
-            this.invoices = invoices;
+                this.invoices = invoices;
                 console.log('✅ Facturas obtenidas (simuladas):', invoices);
-            return invoices;
+                return invoices;
             }
         } catch (error) {
             console.error('❌ Error obteniendo facturas:', error);
@@ -335,30 +366,41 @@ class StripeService {
             // Intentar obtener datos reales del backend usando el stripe_customer_id
             try {
                 const paymentMethods = await this.makeSecureRequest(`/payment-methods/${stripeCustomerId}`);
-                this.paymentMethods = paymentMethods;
-                console.log('✅ Métodos de pago obtenidos desde backend:', paymentMethods);
-                return paymentMethods;
+                
+                // Validar que la respuesta sea un array
+                if (Array.isArray(paymentMethods)) {
+                    this.paymentMethods = paymentMethods;
+                    console.log(`✅ ${paymentMethods.length} método(s) de pago obtenido(s) desde backend:`, paymentMethods);
+                    return paymentMethods;
+                } else if (paymentMethods && paymentMethods.data && Array.isArray(paymentMethods.data)) {
+                    // Si viene en formato { data: [...] }
+                    this.paymentMethods = paymentMethods.data;
+                    console.log(`✅ ${paymentMethods.data.length} método(s) de pago obtenido(s) desde backend:`, paymentMethods.data);
+                    return paymentMethods.data;
+                } else {
+                    throw new Error('Formato de respuesta inválido');
+                }
             } catch (backendError) {
                 console.warn('⚠️ Backend no disponible, usando datos simulados:', backendError.message);
                 
                 // Fallback a datos simulados si el backend no está disponible
-            const paymentMethods = [
-                {
-                    id: 'pm_demo123',
-                    type: 'card',
+                const paymentMethods = [
+                    {
+                        id: 'pm_demo123',
+                        type: 'card',
                         customer: stripeCustomerId,
-                    card: {
-                        brand: 'visa',
-                        last4: '4242',
-                        exp_month: 12,
-                        exp_year: 2025
+                        card: {
+                            brand: 'visa',
+                            last4: '4242',
+                            exp_month: 12,
+                            exp_year: 2025
+                        }
                     }
-                }
-            ];
+                ];
 
-            this.paymentMethods = paymentMethods;
+                this.paymentMethods = paymentMethods;
                 console.log('✅ Métodos de pago obtenidos (simulados):', paymentMethods);
-            return paymentMethods;
+                return paymentMethods;
             }
         } catch (error) {
             console.error('❌ Error obteniendo métodos de pago:', error);

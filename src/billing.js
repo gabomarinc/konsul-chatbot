@@ -155,17 +155,48 @@ class BillingManager {
         }
 
         const subscriptionsHTML = this.subscriptions.map(subscription => {
-            const product = subscription.items.data[0]?.price?.product;
-            const price = subscription.items.data[0]?.price;
+            // Manejar diferentes estructuras de datos de Stripe
+            const items = subscription.items?.data || subscription.items || [];
+            const firstItem = items[0] || {};
+            const price = firstItem.price || {};
+            const product = price.product || {};
+            
+            // Si el producto viene como string (ID), intentar obtener el nombre del objeto expandido
+            const productName = typeof product === 'string' 
+                ? (subscription.metadata?.product_name || 'Plan Premium')
+                : (product.name || subscription.metadata?.product_name || 'Plan Premium');
+            
+            const productDescription = typeof product === 'string'
+                ? (subscription.metadata?.product_description || 'Plan con todas las funcionalidades')
+                : (product.description || subscription.metadata?.product_description || 'Plan con todas las funcionalidades');
+            
             const statusColor = this.stripeService.getStatusColor(subscription.status, 'subscription');
             const statusText = this.stripeService.getSubscriptionStatusText(subscription.status);
+            
+            // Manejar fechas (pueden venir como timestamp o string)
+            const periodStart = subscription.current_period_start 
+                ? (typeof subscription.current_period_start === 'number' 
+                    ? subscription.current_period_start 
+                    : Math.floor(new Date(subscription.current_period_start).getTime() / 1000))
+                : null;
+            const periodEnd = subscription.current_period_end
+                ? (typeof subscription.current_period_end === 'number'
+                    ? subscription.current_period_end
+                    : Math.floor(new Date(subscription.current_period_end).getTime() / 1000))
+                : null;
+            
+            // Formatear precio
+            const unitAmount = price.unit_amount || 0;
+            const currency = price.currency || subscription.currency || 'usd';
+            const interval = price.recurring?.interval || subscription.metadata?.interval || 'month';
+            const intervalText = interval === 'month' ? 'mensual' : interval === 'year' ? 'anual' : interval;
 
             return `
                 <div class="subscription-item">
                     <div class="subscription-header">
                         <div class="subscription-info">
-                            <h4>${product?.name || 'Plan Premium'}</h4>
-                            <p>${product?.description || 'Plan con todas las funcionalidades'}</p>
+                            <h4>${productName}</h4>
+                            <p>${productDescription}</p>
                         </div>
                         <div class="subscription-status">
                             <span class="status-badge ${statusColor}">${statusText}</span>
@@ -174,19 +205,21 @@ class BillingManager {
                     <div class="subscription-details">
                         <div class="detail-item">
                             <label>Precio:</label>
-                            <span>${this.stripeService.formatStripeAmount(price?.unit_amount || 0)} ${price?.recurring?.interval || 'mensual'}</span>
+                            <span>${this.stripeService.formatStripeAmount(unitAmount, currency)} ${intervalText}</span>
                         </div>
+                        ${periodStart && periodEnd ? `
                         <div class="detail-item">
                             <label>Período actual:</label>
-                            <span>${this.stripeService.formatStripeDate(subscription.current_period_start)} - ${this.stripeService.formatStripeDate(subscription.current_period_end)}</span>
+                            <span>${this.stripeService.formatStripeDate(periodStart)} - ${this.stripeService.formatStripeDate(periodEnd)}</span>
                         </div>
+                        ` : ''}
                         <div class="detail-item">
                             <label>Cancelar al finalizar:</label>
                             <span>${subscription.cancel_at_period_end ? 'Sí' : 'No'}</span>
                         </div>
                     </div>
                     <div class="subscription-actions">
-                        ${subscription.status === 'active' ? `
+                        ${subscription.status === 'active' || subscription.status === 'trialing' ? `
                             <button class="btn btn-outline btn-sm" onclick="window.billingManager.manageSubscription('${subscription.id}')">
                                 <i class="fas fa-cog"></i>
                                 Gestionar
@@ -242,35 +275,53 @@ class BillingManager {
         const invoicesHTML = this.invoices.map(invoice => {
             const statusColor = this.stripeService.getStatusColor(invoice.status);
             const statusText = this.stripeService.getInvoiceStatusText(invoice.status);
+            
+            // Manejar el número de factura (puede venir como 'number' o generarse desde 'id')
+            const invoiceNumber = invoice.number || invoice.id?.replace('in_', 'INV-').toUpperCase() || 'N/A';
+            
+            // Manejar fechas (pueden venir como timestamp o string)
+            const createdDate = invoice.created ? (typeof invoice.created === 'number' ? invoice.created : Math.floor(new Date(invoice.created).getTime() / 1000)) : null;
+            const dueDate = invoice.due_date ? (typeof invoice.due_date === 'number' ? invoice.due_date : Math.floor(new Date(invoice.due_date).getTime() / 1000)) : createdDate;
+            
+            // URLs de descarga
+            const pdfUrl = invoice.invoice_pdf || invoice.hosted_invoice_url || '#';
+            const hostedUrl = invoice.hosted_invoice_url || '#';
 
             return `
                 <div class="invoice-item">
                     <div class="invoice-header">
                         <div class="invoice-info">
-                            <h4>${invoice.number}</h4>
-                            <p>${this.stripeService.formatStripeDate(invoice.created)}</p>
+                            <h4>${invoiceNumber}</h4>
+                            <p>${createdDate ? this.stripeService.formatStripeDate(createdDate) : 'N/A'}</p>
                         </div>
                         <div class="invoice-amount">
-                            <span class="amount">${this.stripeService.formatStripeAmount(invoice.amount_due)}</span>
+                            <span class="amount">${this.stripeService.formatStripeAmount(invoice.amount_due || 0, invoice.currency || 'usd')}</span>
                             <span class="status-badge ${statusColor}">${statusText}</span>
                         </div>
                     </div>
                     <div class="invoice-details">
                         <div class="detail-item">
                             <label>Vencimiento:</label>
-                            <span>${this.stripeService.formatStripeDate(invoice.due_date)}</span>
+                            <span>${dueDate ? this.stripeService.formatStripeDate(dueDate) : 'N/A'}</span>
                         </div>
                         <div class="detail-item">
                             <label>Pagado:</label>
-                            <span>${this.stripeService.formatStripeAmount(invoice.amount_paid)}</span>
+                            <span>${this.stripeService.formatStripeAmount(invoice.amount_paid || 0, invoice.currency || 'usd')}</span>
                         </div>
                     </div>
                     <div class="invoice-actions">
-                        <button class="btn btn-outline btn-sm" onclick="window.billingManager.downloadInvoice('${invoice.id}')">
-                            <i class="fas fa-download"></i>
-                            Descargar PDF
-                        </button>
-                        ${invoice.status === 'open' ? `
+                        ${pdfUrl !== '#' ? `
+                            <a href="${pdfUrl}" target="_blank" class="btn btn-outline btn-sm">
+                                <i class="fas fa-download"></i>
+                                Descargar PDF
+                            </a>
+                        ` : `
+                            <button class="btn btn-outline btn-sm" onclick="window.billingManager.downloadInvoice('${invoice.id}')">
+                                <i class="fas fa-download"></i>
+                                Descargar PDF
+                            </button>
+                        `}
+                        ${invoice.status === 'open' || invoice.status === 'draft' ? `
                             <button class="btn btn-primary btn-sm" onclick="window.billingManager.payInvoice('${invoice.id}')">
                                 <i class="fas fa-credit-card"></i>
                                 Pagar Ahora
