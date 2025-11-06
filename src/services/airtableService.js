@@ -397,7 +397,13 @@ class AirtableService {
             // Campos adicionales
             hasPaid: fields.has_paid || false,
             token_api: fields.token_api || '',
-            stripeCustomerId: fields.stripe_customer_id || fields.stripeCustomerId || '',
+            stripeCustomerId: fields.stripe_customer_id || 
+                              fields.stripeCustomerId || 
+                              fields.StripeCustomerId || 
+                              fields.Stripe_Customer_Id ||
+                              fields['Stripe Customer ID'] ||
+                              fields['stripe customer id'] ||
+                              '',
             createdTime: record.createdTime,
             // Campos de equipo
             isTeamMember: fields.is_team_member || false,
