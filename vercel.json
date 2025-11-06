@@ -15,6 +15,11 @@
       "destination": "https://api.gptmaker.ai/:path*"
     }
   ],
+  "functions": {
+    "api/stripe/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "headers": [
     {
       "source": "/src/(.*)",

@@ -10,8 +10,24 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { customerId } = req.query;
+        // En Vercel, el parámetro dinámico puede venir en req.query o en la URL
+        let customerId = req.query.customerId;
         const limit = req.query.limit ? parseInt(req.query.limit) : 100;
+        
+        if (!customerId && req.url) {
+            const urlParts = req.url.split('/');
+            const customerIndex = urlParts.indexOf('invoices');
+            if (customerIndex !== -1 && urlParts[customerIndex + 1]) {
+                customerId = urlParts[customerIndex + 1];
+            }
+        }
+        
+        if (!customerId && req.query && Object.keys(req.query).length > 0) {
+            const queryKeys = Object.keys(req.query);
+            if (queryKeys.length === 1) {
+                customerId = req.query[queryKeys[0]];
+            }
+        }
 
         if (!customerId) {
             return res.status(400).json({ error: 'Customer ID is required' });
