@@ -31,12 +31,39 @@ class BillingManager {
         try {
             console.log('📊 Cargando datos de facturación desde Stripe...');
             
-            // Verificar usuario primero
-            const currentUser = window.authService?.getCurrentUser();
-            if (!currentUser) {
-                console.error('❌ No hay usuario autenticado');
-                this.showErrorMessage('No hay usuario autenticado. Por favor, inicia sesión.');
+            // Verificar y recargar usuario si es necesario
+            if (!window.authService) {
+                console.error('❌ AuthService no está disponible');
+                this.showErrorMessage('Error: Servicio de autenticación no disponible. Por favor, recarga la página.');
                 return;
+            }
+            
+            // Intentar recargar datos de autenticación desde storage
+            window.authService.loadAuthData();
+            
+            // Verificar usuario después de recargar
+            let currentUser = window.authService?.getCurrentUser();
+            if (!currentUser) {
+                console.error('❌ No hay usuario autenticado después de recargar datos');
+                console.log('💡 Intentando validar token...');
+                
+                // Intentar validar el token si existe
+                const token = window.authService?.getToken();
+                if (token) {
+                    const isValid = await window.authService.validateToken();
+                    if (isValid) {
+                        currentUser = window.authService?.getCurrentUser();
+                    }
+                }
+                
+                if (!currentUser) {
+                    this.showErrorMessage('No hay usuario autenticado. Por favor, inicia sesión nuevamente.');
+                    // Redirigir a login después de 2 segundos
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                    return;
+                }
             }
             
             console.log('👤 Usuario autenticado:', currentUser.email);
@@ -58,9 +85,20 @@ class BillingManager {
                     errorMessage += '\n1. Ejecuta: debugStripeCustomerId() en la consola';
                     errorMessage += '\n2. Verifica el nombre exacto del campo en Airtable';
                     errorMessage += '\n3. Asegúrate de que el campo tenga un valor (ej: cus_THw3cWvDfKwj5g)';
+                } else if (error.message.includes('404') || error.message.includes('Not Found') || error.message.includes('Customer not found')) {
+                    const stripeCustomerId = currentUser.stripeCustomerId || currentUser.stripe_customer_id || 'N/A';
+                    errorMessage += `\n\nEl Customer ID "${stripeCustomerId}" no existe en Stripe o no está asociado a tu cuenta.`;
+                    errorMessage += '\n\nPosibles causas:';
+                    errorMessage += '\n1. El Customer ID en Airtable es incorrecto';
+                    errorMessage += '\n2. El Customer ID fue eliminado de Stripe';
+                    errorMessage += '\n3. La clave secreta de Stripe no tiene acceso a este customer';
+                    errorMessage += '\n\nSolución: Verifica el Customer ID en Airtable y asegúrate de que existe en tu cuenta de Stripe.';
                 } else if (error.message.includes('ERR_BLOCKED_BY_CLIENT') || error.message.includes('Failed to fetch')) {
                     errorMessage += '\n\nPosible bloqueo por extensión del navegador.';
                     errorMessage += '\n\nSolución: Desactiva ad-blockers o extensiones de privacidad.';
+                } else if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+                    errorMessage += '\n\nError de autenticación con el servidor.';
+                    errorMessage += '\n\nSolución: Verifica que la variable STRIPE_SECRET_KEY esté configurada correctamente en Vercel.';
                 } else {
                     errorMessage += `\n\nError: ${error.message}`;
                 }
