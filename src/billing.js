@@ -45,18 +45,11 @@ class BillingManager {
             let currentUser = window.authService?.getCurrentUser();
             if (!currentUser) {
                 console.error('❌ No hay usuario autenticado después de recargar datos');
-                console.log('💡 Intentando validar token...');
                 
-                // Intentar validar el token si existe
+                // Verificar si hay token pero no usuario (sesión expirada)
                 const token = window.authService?.getToken();
-                if (token) {
-                    const isValid = await window.authService.validateToken();
-                    if (isValid) {
-                        currentUser = window.authService?.getCurrentUser();
-                    }
-                }
-                
-                if (!currentUser) {
+                if (!token) {
+                    console.log('❌ No hay token disponible');
                     this.showErrorMessage('No hay usuario autenticado. Por favor, inicia sesión nuevamente.');
                     // Redirigir a login después de 2 segundos
                     setTimeout(() => {
@@ -64,6 +57,16 @@ class BillingManager {
                     }, 2000);
                     return;
                 }
+                
+                // Si hay token pero no usuario, puede ser que la sesión expiró
+                // No validamos el token para evitar limpiar la sesión innecesariamente
+                // Solo mostramos el error y sugerimos reiniciar sesión
+                console.log('⚠️ Hay token pero no usuario - sesión puede haber expirado');
+                this.showErrorMessage('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 2000);
+                return;
             }
             
             console.log('👤 Usuario autenticado:', currentUser.email);
