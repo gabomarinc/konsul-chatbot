@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "konsul-chatbot",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
@@ -15,11 +14,6 @@
       "destination": "https://api.gptmaker.ai/:path*"
     }
   ],
-  "functions": {
-    "api/stripe/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "headers": [
     {
       "source": "/src/(.*)",
