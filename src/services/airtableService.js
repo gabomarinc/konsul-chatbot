@@ -35,25 +35,36 @@ class AirtableService {
             
             const url = `${this.apiBase}/${this.baseId}/${this.tableName}`;
             
+            const fields = {
+                'email': userData.email,
+                'first_name': userData.firstName || userData.name?.split(' ')[0] || '',
+                'last_name': userData.lastName || userData.name?.split(' ').slice(1).join(' ') || '',
+                'password_hash': userData.password, // Nota: Considerar hashear la contraseña
+                'role': userData.role || 'user',
+                'status': 'active',
+                'has_paid': userData.hasPaid || false,
+                // Campos para gestión de equipo (se crean si no existen)
+                'is_team_member': userData.isTeamMember || false,
+                'member_role': userData.memberRole || ''
+            };
+
+            if (userData.ownerRecordId) {
+                fields['team_owner_email'] = [userData.ownerRecordId];
+            } else if (userData.teamOwnerEmail || userData.email) {
+                fields['team_owner_email'] = userData.teamOwnerEmail || userData.email;
+            }
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify({
-                    fields: {
-                        'email': userData.email,
-                        'first_name': userData.firstName || userData.name?.split(' ')[0] || '',
-                        'last_name': userData.lastName || userData.name?.split(' ').slice(1).join(' ') || '',
-                        'password_hash': userData.password, // Nota: Considerar hashear la contraseña
-                        'role': userData.role || 'user',
-                        'status': 'active',
-                        'has_paid': userData.hasPaid || false,
-                        // Campos para gestión de equipo (se crean si no existen)
-                        'is_team_member': userData.isTeamMember || false,
-                        'team_owner_email': userData.teamOwnerEmail || userData.email || '',
-                        'member_role': userData.memberRole || ''
-                    }
-                })
+                body: JSON.stringify({ fields })
             });
+
+            if (userData.ownerRecordId) {
+                body.fields['team_owner_email'] = [userData.ownerRecordId];
+            } else if (userData.teamOwnerEmail || userData.email) {
+                body.fields['team_owner_email'] = userData.teamOwnerEmail || userData.email;
+            }
 
             if (!response.ok) {
                 const error = await response.json();
@@ -376,6 +387,27 @@ class AirtableService {
         console.log('🔍 Campos disponibles en Airtable:', Object.keys(fields));
         console.log('📊 Valores de los campos:', fields);
         
+        const teamOwnerLink = fields.team_owner_email;
+        let teamOwnerRecordId = '';
+        if (Array.isArray(teamOwnerLink) && teamOwnerLink.length > 0) {
+            teamOwnerRecordId = teamOwnerLink[0];
+        }
+
+        const teamOwnerEmailFromLink =
+            fields['email (from team_owner_email)'] ||
+            fields['Email (from team_owner_email)'] ||
+            fields['correo (from team_owner_email)'] ||
+            fields['Correo (from team_owner_email)'] ||
+            fields.team_owner_email_email ||
+            '';
+
+        let teamOwnerEmailValue = '';
+        if (typeof fields.team_owner_email === 'string') {
+            teamOwnerEmailValue = fields.team_owner_email;
+        } else if (teamOwnerRecordId) {
+            teamOwnerEmailValue = teamOwnerEmailFromLink || '';
+        }
+
         // Mapear campos de Airtable a estructura esperada
         // Tu Airtable usa: email, first_name, last_name, password_hash, role, status, etc.
         const firstName = fields.first_name || fields.Name || fields.name || '';
@@ -406,8 +438,10 @@ class AirtableService {
             createdTime: record.createdTime,
             // Campos de equipo
             isTeamMember: fields.is_team_member || false,
-            teamOwnerEmail: fields.team_owner_email || fields.email || '',
-            memberRole: fields.member_role || ''
+            teamOwnerEmail: teamOwnerEmailValue || '',
+            memberRole: fields.member_role || '',
+            teamOwnerRecordId,
+            ownerRecordId: teamOwnerRecordId
         };
         
         console.log('✨ Usuario transformado:', transformedUser);
@@ -466,6 +500,10 @@ class AirtableService {
                 teamOwnerEmail: ownerEmail,
                 memberRole: memberData.role || 'agent'
             };
+
+            if (memberData.ownerRecordId) {
+                payload.ownerRecordId = memberData.ownerRecordId;
+            }
 
             const result = await this.createUser(payload);
             if (!result.success) throw new Error(result.error || 'No se pudo crear miembro');

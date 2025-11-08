@@ -16,6 +16,7 @@ class TeamManager {
         this.teamMembers = [];
         this.usingAirtable = false;
         this.ownerEmailCache = '';
+        this.ownerRecordIdCache = '';
         this.init();
     }
 
@@ -252,15 +253,23 @@ class TeamManager {
 
         const authService = window.authService;
         if (authService) {
-            const fromAuth = this.extractOwnerEmail(authService.getCurrentUser?.());
+            const currentUser = authService.getCurrentUser?.();
+            const fromAuth = this.extractOwnerEmail(currentUser);
             if (trySetCache(fromAuth)) {
+                if (currentUser?.id) {
+                    this.ownerRecordIdCache = currentUser.id;
+                }
                 return this.ownerEmailCache;
             }
 
             // Intentar recargar datos desde storage
             authService.loadAuthData?.();
-            const reloaded = this.extractOwnerEmail(authService.getCurrentUser?.());
+            const reloadedUser = authService.getCurrentUser?.();
+            const reloaded = this.extractOwnerEmail(reloadedUser);
             if (trySetCache(reloaded)) {
+                if (reloadedUser?.id) {
+                    this.ownerRecordIdCache = reloadedUser.id;
+                }
                 return this.ownerEmailCache;
             }
         }
@@ -270,8 +279,12 @@ class TeamManager {
         if (storedAuth) {
             try {
                 const parsed = JSON.parse(storedAuth);
-                const fromStorage = this.extractOwnerEmail(parsed?.user);
+                const storedUser = parsed?.user;
+                const fromStorage = this.extractOwnerEmail(storedUser);
                 if (trySetCache(fromStorage)) {
+                    if (storedUser?.id) {
+                        this.ownerRecordIdCache = storedUser.id;
+                    }
                     return this.ownerEmailCache;
                 }
             } catch (error) {
@@ -288,6 +301,9 @@ class TeamManager {
                     if (freshUser?.success && freshUser.user) {
                         const email = this.extractOwnerEmail(freshUser.user);
                         if (trySetCache(email)) {
+                            if (freshUser.user.id) {
+                                this.ownerRecordIdCache = freshUser.user.id;
+                            }
                             // Actualizar authService con los nuevos datos
                             authService.currentUser = {
                                 ...authService.currentUser,
@@ -311,6 +327,35 @@ class TeamManager {
         return '';
     }
 
+    async resolveOwnerRecordId(ownerEmail) {
+        if (this.ownerRecordIdCache) {
+            return this.ownerRecordIdCache;
+        }
+
+        const authService = window.authService;
+        if (authService) {
+            const current = authService.getCurrentUser?.();
+            if (current?.id) {
+                this.ownerRecordIdCache = current.id;
+                return this.ownerRecordIdCache;
+            }
+        }
+
+        if (window.airtableService && ownerEmail) {
+            try {
+                const ownerResult = await window.airtableService.getUserByEmail(ownerEmail);
+                if (ownerResult?.success && ownerResult.user?.id) {
+                    this.ownerRecordIdCache = ownerResult.user.id;
+                    return this.ownerRecordIdCache;
+                }
+            } catch (error) {
+                console.warn('⚠️ No se pudo obtener ownerRecordId desde Airtable:', error);
+            }
+        }
+
+        return '';
+    }
+
     async handleInvite(form, modal) {
         const formData = new FormData(form);
         const memberData = {
@@ -330,10 +375,12 @@ class TeamManager {
                     throw new Error('No se encontró el email del propietario. Vuelve a iniciar sesión e inténtalo de nuevo.');
                 }
                 this.ownerEmailCache = ownerEmail;
+                const ownerRecordId = await this.resolveOwnerRecordId(ownerEmail);
                 const result = await window.airtableService.addTeamMember(ownerEmail, {
                     email: memberData.email,
                     name: memberData.name,
-                    role: memberData.role
+                    role: memberData.role,
+                    ownerRecordId
                 });
                 if (!result.success) throw new Error(result.error || 'No se pudo agregar');
                 // Recargar desde Airtable para asegurar datos reales
