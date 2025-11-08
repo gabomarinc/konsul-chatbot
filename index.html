@@ -35,12 +35,6 @@
                             <span>Chats</span>
                         </a>
                     </li>
-                    <li class="nav-item" data-section="team">
-                        <a href="#" class="nav-link">
-                            <i class="fas fa-users"></i>
-                            <span>Equipo</span>
-                        </a>
-                    </li>
                     <li class="nav-item" data-section="agents">
                         <a href="#" class="nav-link">
                             <i class="fas fa-robot"></i>
@@ -275,72 +269,6 @@
                     </div>
                 </section>
 
-                <!-- Team Section -->
-                <section class="content-section" id="team">
-                    <div class="section-header">
-                        <h2>
-                            <i class="fas fa-users"></i>
-                            Mi Equipo de Ventas
-                        </h2>
-                    </div>
-
-                    <div class="team-container">
-                        <!-- Info del equipo -->
-                        <div class="team-info-card">
-                            <div class="team-info-icon">
-                                <i class="fas fa-info-circle"></i>
-                            </div>
-                            <div class="team-info-content">
-                                <h3>¿Cómo funciona el equipo?</h3>
-                                <p>Invita hasta <strong>3 vendedores o agentes</strong> que recibirán notificaciones por correo cuando un cliente haya sido calificado por el chatbot. Ellos podrán trabajar estos leads directamente.</p>
-                            </div>
-                        </div>
-
-                        <!-- Estado del equipo -->
-                        <div class="team-status-card">
-                            <div class="team-status-header">
-                                <h3>
-                                    <i class="fas fa-chart-pie"></i>
-                                    Estado del Equipo
-                                </h3>
-                                <span class="team-count" id="teamCount">
-                                    <span id="currentMembersCount">0</span> / 3 miembros
-                                </span>
-                            </div>
-                            <div class="team-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" id="teamProgressFill" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Lista de miembros del equipo -->
-                        <div class="team-members-section">
-                            <div class="team-members-header">
-                                <h3>
-                                    <i class="fas fa-user-friends"></i>
-                                    Miembros del Equipo
-                                </h3>
-                                <button class="btn btn-primary" id="inviteMemberBtn" onclick="window.showTeamModal()">
-                                    <i class="fas fa-user-plus"></i>
-                                    Invitar Miembro
-                                </button>
-                            </div>
-
-                            <div class="team-members-list" id="teamMembersList">
-                                <!-- Los miembros se cargarán aquí dinámicamente -->
-                                <div class="empty-team-state">
-                                    <i class="fas fa-user-slash"></i>
-                                    <p>Aún no has invitado a ningún miembro</p>
-                                    <button class="btn btn-outline" onclick="document.getElementById('inviteMemberBtn').click()">
-                                        <i class="fas fa-user-plus"></i>
-                                        Invitar Primer Miembro
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
 
                 <!-- Profile Section -->
                 <section class="content-section" id="profile">
@@ -686,7 +614,6 @@
     <script src="src/dashboard.js"></script>
     <script src="src/billing.js"></script>
     <script src="src/improvements.js"></script>
-    <script src="src/team.js"></script>
     <script src="src/main.js"></script>
     
     <!-- Scripts de prueba (solo en desarrollo) -->
