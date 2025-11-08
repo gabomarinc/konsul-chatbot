@@ -50,7 +50,7 @@ class AirtableService {
                         'has_paid': userData.hasPaid || false,
                         // Campos para gestión de equipo (se crean si no existen)
                         'is_team_member': userData.isTeamMember || false,
-                        'team_owner_email': userData.teamOwnerEmail || '',
+                        'team_owner_email': userData.teamOwnerEmail || userData.email || '',
                         'member_role': userData.memberRole || ''
                     }
                 })
@@ -407,7 +407,7 @@ class AirtableService {
             createdTime: record.createdTime,
             // Campos de equipo
             isTeamMember: fields.is_team_member || false,
-            teamOwnerEmail: fields.team_owner_email || '',
+            teamOwnerEmail: fields.team_owner_email || fields.email || '',
             memberRole: fields.member_role || ''
         };
         
