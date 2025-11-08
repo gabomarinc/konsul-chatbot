@@ -475,6 +475,43 @@ class StripeService {
             throw error;
         }
     }
+
+    // Crear sesión del portal de facturación
+    async createBillingPortalSession(returnUrl) {
+        try {
+            console.log('🔄 Creando sesión del portal de facturación...');
+
+            const currentUser = window.authService?.getCurrentUser();
+            const stripeCustomerId = currentUser?.stripeCustomerId ||
+                currentUser?.stripe_customer_id ||
+                currentUser?.StripeCustomerId ||
+                currentUser?.Stripe_Customer_Id ||
+                currentUser?.['Stripe Customer ID'] ||
+                currentUser?.['stripe customer id'];
+
+            if (!stripeCustomerId) {
+                throw new Error('stripe_customer_id no configurado en Airtable');
+            }
+
+            const response = await this.makeSecureRequest('/portal-session', {
+                method: 'POST',
+                body: JSON.stringify({
+                    customerId: stripeCustomerId,
+                    returnUrl
+                })
+            });
+
+            if (!response?.url) {
+                throw new Error('Respuesta inválida al crear la sesión del portal');
+            }
+
+            console.log('✅ Sesión del portal creada correctamente');
+            return response.url;
+        } catch (error) {
+            console.error('❌ Error creando sesión del portal de facturación:', error);
+            throw error;
+        }
+    }
 }
 
 // Hacer disponible globalmente

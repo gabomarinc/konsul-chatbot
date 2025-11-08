@@ -181,6 +181,10 @@ class BillingManager {
                         <i class="fas fa-user"></i>
                         Información del Cliente
                     </h3>
+                    <button class="btn btn-primary btn-sm" onclick="window.billingManager.openBillingPortal()">
+                        <i class="fas fa-external-link-alt"></i>
+                        Portal de Facturación
+                    </button>
                 </div>
                 <div class="card-body">
                     <div class="info-grid">
@@ -575,6 +579,28 @@ class BillingManager {
         console.log('🗑️ Eliminando método de pago:', paymentMethodId);
         if (confirm('¿Estás seguro de que quieres eliminar este método de pago?')) {
             this.showNotification('Método de pago eliminado', 'success');
+        }
+    }
+
+    async openBillingPortal() {
+        try {
+            console.log('🔗 Abriendo portal de facturación...');
+
+            if (!this.stripeService) {
+                throw new Error('StripeService no está disponible');
+            }
+
+            const returnUrl = window.location.href;
+            const portalUrl = await this.stripeService.createBillingPortalSession(returnUrl);
+
+            if (portalUrl) {
+                window.open(portalUrl, '_blank', 'noopener');
+            } else {
+                throw new Error('No se recibió la URL del portal');
+            }
+        } catch (error) {
+            console.error('❌ Error abriendo portal de facturación:', error);
+            this.showNotification(error.message || 'No se pudo abrir el portal de facturación', 'error');
         }
     }
 
