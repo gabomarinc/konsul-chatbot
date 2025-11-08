@@ -21,6 +21,7 @@
   "author": "Tu Empresa",
   "license": "MIT",
   "dependencies": {
+    "dotenv": "^16.4.5",
     "stripe": "^14.21.0"
   },
   "devDependencies": {
