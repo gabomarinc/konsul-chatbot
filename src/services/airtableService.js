@@ -491,7 +491,7 @@ class AirtableService {
             if (!ownerEmail) throw new Error('ownerEmail es requerido');
             if (!memberData?.email) throw new Error('email del miembro es requerido');
 
-            const payload = {
+            const result = await this.createUser({
                 email: memberData.email,
                 name: memberData.name,
                 firstName: memberData.firstName,
@@ -500,14 +500,9 @@ class AirtableService {
                 status: 'active',
                 isTeamMember: true,
                 teamOwnerEmail: ownerEmail,
-                memberRole: memberData.role || 'agent'
-            };
-
-            if (memberData.ownerRecordId) {
-                payload.ownerRecordId = memberData.ownerRecordId;
-            }
-
-            const result = await this.createUser(payload);
+                memberRole: memberData.role || 'agent',
+                ownerRecordId: memberData.ownerRecordId
+            });
             if (!result.success) throw new Error(result.error || 'No se pudo crear miembro');
             return { success: true, member: result.user };
         } catch (error) {
