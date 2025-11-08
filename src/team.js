@@ -38,8 +38,7 @@ class TeamManager {
     async loadTeamMembers() {
         if (this.usingAirtable) {
             try {
-                const owner = window.authService?.getCurrentUser();
-                const ownerEmail = owner?.email;
+                const ownerEmail = this.getOwnerEmail();
                 if (!ownerEmail) {
                     console.warn('⚠️ No hay email del propietario para cargar equipo');
                     this.teamMembers = [];
@@ -223,6 +222,26 @@ class TeamManager {
         });
     }
 
+    getOwnerEmail() {
+        const currentUser = window.authService?.getCurrentUser();
+        if (!currentUser) return '';
+
+        const possibleFields = [
+            currentUser.email,
+            currentUser.teamOwnerEmail,
+            currentUser.ownerEmail,
+            currentUser.team_owner_email,
+            currentUser.team_ownerEmail,
+            currentUser.owner_email
+        ];
+
+        const found = possibleFields.find(value => typeof value === 'string' && value.trim() !== '');
+        if (!found) {
+            console.warn('⚠️ No se encontró ownerEmail en el usuario actual', currentUser);
+        }
+        return found || '';
+    }
+
     async handleInvite(form, modal) {
         const formData = new FormData(form);
         const memberData = {
@@ -237,7 +256,10 @@ class TeamManager {
 
         try {
             if (this.usingAirtable) {
-                const ownerEmail = window.authService?.getCurrentUser()?.email;
+                const ownerEmail = this.getOwnerEmail();
+                if (!ownerEmail) {
+                    throw new Error('No se encontró el email del propietario. Vuelve a iniciar sesión e inténtalo de nuevo.');
+                }
                 const result = await window.airtableService.addTeamMember(ownerEmail, {
                     email: memberData.email,
                     name: memberData.name,
