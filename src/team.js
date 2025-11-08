@@ -15,6 +15,7 @@ class TeamManager {
         this.maxMembers = 3;
         this.teamMembers = [];
         this.usingAirtable = false;
+        this.ownerEmailCache = '';
         this.init();
     }
 
@@ -38,7 +39,7 @@ class TeamManager {
     async loadTeamMembers() {
         if (this.usingAirtable) {
             try {
-                const ownerEmail = this.getOwnerEmail();
+                const ownerEmail = await this.resolveOwnerEmail();
                 if (!ownerEmail) {
                     console.warn('⚠️ No hay email del propietario para cargar equipo');
                     this.teamMembers = [];
@@ -222,24 +223,92 @@ class TeamManager {
         });
     }
 
-    getOwnerEmail() {
-        const currentUser = window.authService?.getCurrentUser();
-        if (!currentUser) return '';
-
+    extractOwnerEmail(user) {
+        if (!user || typeof user !== 'object') return '';
         const possibleFields = [
-            currentUser.email,
-            currentUser.teamOwnerEmail,
-            currentUser.ownerEmail,
-            currentUser.team_owner_email,
-            currentUser.team_ownerEmail,
-            currentUser.owner_email
+            user.email,
+            user.teamOwnerEmail,
+            user.team_owner_email,
+            user.team_ownerEmail,
+            user.ownerEmail,
+            user.owner_email
         ];
-
         const found = possibleFields.find(value => typeof value === 'string' && value.trim() !== '');
-        if (!found) {
-            console.warn('⚠️ No se encontró ownerEmail en el usuario actual', currentUser);
+        return found ? found.trim() : '';
+    }
+
+    async resolveOwnerEmail() {
+        if (this.ownerEmailCache) {
+            return this.ownerEmailCache;
         }
-        return found || '';
+
+        const trySetCache = (email) => {
+            if (email) {
+                this.ownerEmailCache = email;
+                return true;
+            }
+            return false;
+        };
+
+        const authService = window.authService;
+        if (authService) {
+            const fromAuth = this.extractOwnerEmail(authService.getCurrentUser?.());
+            if (trySetCache(fromAuth)) {
+                return this.ownerEmailCache;
+            }
+
+            // Intentar recargar datos desde storage
+            authService.loadAuthData?.();
+            const reloaded = this.extractOwnerEmail(authService.getCurrentUser?.());
+            if (trySetCache(reloaded)) {
+                return this.ownerEmailCache;
+            }
+        }
+
+        // Intentar obtener desde storage manualmente
+        const storedAuth = localStorage.getItem('authData') || sessionStorage.getItem('authData');
+        if (storedAuth) {
+            try {
+                const parsed = JSON.parse(storedAuth);
+                const fromStorage = this.extractOwnerEmail(parsed?.user);
+                if (trySetCache(fromStorage)) {
+                    return this.ownerEmailCache;
+                }
+            } catch (error) {
+                console.warn('⚠️ No se pudo leer authData del storage:', error);
+            }
+        }
+
+        // Último recurso: pedir a Airtable el registro del usuario actual
+        if (authService && window.airtableService) {
+            try {
+                const currentUser = authService.getCurrentUser?.();
+                if (currentUser?.id) {
+                    const freshUser = await window.airtableService.getUserById(currentUser.id);
+                    if (freshUser?.success && freshUser.user) {
+                        const email = this.extractOwnerEmail(freshUser.user);
+                        if (trySetCache(email)) {
+                            // Actualizar authService con los nuevos datos
+                            authService.currentUser = {
+                                ...authService.currentUser,
+                                ...freshUser.user
+                            };
+                            authService.saveAuthData?.(true);
+                            return this.ownerEmailCache;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ No se pudo obtener ownerEmail desde Airtable:', error);
+            }
+        }
+
+        console.warn('⚠️ No se encontró ownerEmail después de todos los intentos');
+        const currentUser = window.authService?.getCurrentUser();
+        if (currentUser) {
+            console.warn('ℹ️ Usuario actual sin ownerEmail:', currentUser);
+        }
+        return '';
     }
 
     async handleInvite(form, modal) {
@@ -256,10 +325,11 @@ class TeamManager {
 
         try {
             if (this.usingAirtable) {
-                const ownerEmail = this.getOwnerEmail();
+                const ownerEmail = await this.resolveOwnerEmail();
                 if (!ownerEmail) {
                     throw new Error('No se encontró el email del propietario. Vuelve a iniciar sesión e inténtalo de nuevo.');
                 }
+                this.ownerEmailCache = ownerEmail;
                 const result = await window.airtableService.addTeamMember(ownerEmail, {
                     email: memberData.email,
                     name: memberData.name,
