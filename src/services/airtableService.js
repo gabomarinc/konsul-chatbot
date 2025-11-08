@@ -46,7 +46,6 @@ class AirtableService {
                         'password_hash': userData.password, // Nota: Considerar hashear la contraseña
                         'role': userData.role || 'user',
                         'status': 'active',
-                        'created_at': new Date().toISOString(),
                         'has_paid': userData.hasPaid || false,
                         // Campos para gestión de equipo (se crean si no existen)
                         'is_team_member': userData.isTeamMember || false,
