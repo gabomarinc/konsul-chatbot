@@ -54,10 +54,12 @@ class AirtableService {
                 fields['team_owner_email'] = userData.teamOwnerEmail || userData.email;
             }
 
+            const payload = { fields };
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify({ fields })
+                body: JSON.stringify(payload)
             });
 
             if (userData.ownerRecordId) {
