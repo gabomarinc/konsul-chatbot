@@ -14,11 +14,12 @@ class ProspectsService {
      */
     extractNameFromMessages(messages) {
         if (!messages || messages.length === 0) {
+            console.log('⚠️ No hay mensajes para buscar nombre.');
             return null;
         }
 
         console.log('🔍 Buscando nombre en mensajes...');
-        
+
         // Patrones para detectar preguntas sobre el nombre (más flexibles)
         const nameQuestionPatterns = [
             /nombre\s+completo/i,
@@ -54,7 +55,9 @@ class ProspectsService {
 
                 if (isNameQuestion && userMessage.role === 'user') {
                     const userText = (userMessage.text || '').trim();
-                    
+                    console.log(`  💬 Bot preguntó por nombre: "${botText.substring(0, 50)}..."`);
+                    console.log(`  👤 Usuario respondió: "${userText.substring(0, 50)}..."`);
+
                     // Intentar extraer el nombre de la respuesta
                     for (const pattern of nameExtractionPatterns) {
                         const match = userText.match(pattern);
@@ -168,7 +171,7 @@ class ProspectsService {
     }
 
     /**
-     * Extrae todos los documentos/PDFs enviados por el usuario
+     * Extrae todos los documentos (incluyendo PDFs) enviados por el usuario
      */
     extractDocumentsFromMessages(messages, userId = 'user') {
         if (!messages || messages.length === 0) {
@@ -176,16 +179,13 @@ class ProspectsService {
         }
 
         const documents = [];
-        
+
         messages.forEach(message => {
             if (message.role === userId && message.type === 'document' && message.documentUrl) {
-                const fileName = message.fileName || 'documento';
-                const isPDF = fileName.toLowerCase().endsWith('.pdf');
-                
                 documents.push({
                     url: message.documentUrl,
-                    fileName: fileName,
-                    type: isPDF ? 'pdf' : 'document',
+                    fileName: message.fileName || 'documento_desconocido',
+                    type: message.fileType || 'application/octet-stream',
                     timestamp: message.time || message.timestamp,
                     messageId: message.id
                 });
@@ -212,26 +212,20 @@ class ProspectsService {
                 if (chatName && chatName !== 'Sin nombre' && chatName.trim().length > 0) {
                     return this.createProspectFromChatData(chat, [], chatName);
                 } else {
-                    console.log('⚠️ No hay nombre válido en el chat, saltando');
-                    return null;
+                    console.log('⚠️ No hay nombre válido disponible, saltando este chat');
+                    return null; // No crear prospecto sin nombre válido
                 }
             }
 
             // Extraer nombre
-            const nombre = this.extractNameFromMessages(messages);
-            
-            // Si no se puede extraer nombre, usar datos del chat como fallback
+            let nombre = this.extractNameFromMessages(messages);
             if (!nombre) {
-                console.log('⚠️ No se pudo extraer nombre de mensajes, usando datos del chat como fallback');
-                const fallbackName = chat.name || chat.userName || chat.whatsappPhone;
-                
-                // Solo crear prospecto si hay un nombre válido (no "Sin nombre")
-                if (fallbackName && fallbackName !== 'Sin nombre' && fallbackName.trim().length > 0) {
-                    console.log(`📝 Usando nombre del chat: ${fallbackName}`);
-                    return this.createProspectFromChatData(chat, messages, fallbackName);
-                } else {
-                    console.log('⚠️ No hay nombre válido disponible, saltando este chat');
-                    return null; // No crear prospecto sin nombre válido
+                nombre = chat.name || chat.userName || chat.whatsappPhone || 'Sin nombre'; // Usar nombre del chat como fallback
+                console.log(`⚠️ No se pudo extraer nombre de mensajes, usando datos del chat como fallback: "${nombre}"`);
+                // Si el nombre sigue siendo "Sin nombre" o vacío, no crear prospecto
+                if (nombre === 'Sin nombre' || nombre.trim().length === 0) {
+                    console.log('⚠️ Nombre de prospecto inválido, saltando este chat.');
+                    return null;
                 }
             }
 
@@ -281,6 +275,12 @@ class ProspectsService {
         try {
             const nombre = nombreFallback || chat.name || chat.userName || chat.whatsappPhone || 'Sin nombre';
             
+            // Si el nombre es "Sin nombre" o vacío, no crear prospecto
+            if (nombre === 'Sin nombre' || nombre.trim().length === 0) {
+                console.log('⚠️ Nombre de prospecto inválido en createProspectFromChatData, saltando.');
+                return null;
+            }
+
             // Extraer imágenes y documentos si hay mensajes
             let imagenesUrls = [];
             let documentosUrls = [];
@@ -311,8 +311,9 @@ class ProspectsService {
                 imagenesUrls: imagenesUrls,
                 documentosUrls: documentosUrls,
                 agenteId: chat.agentId || '',
-                notas: messages && messages.length === 0 ? 'Sin mensajes disponibles' : ''
+                notas: ''
             };
+
         } catch (error) {
             console.error('❌ Error creando prospecto desde datos del chat:', error);
             return null;
@@ -392,6 +393,8 @@ class ProspectsService {
             }
         } catch (error) {
             console.error('❌ Error guardando prospecto:', error);
+            // Asegurar que se limpie el set incluso si hay error
+            this.savingProspects.delete(prospectData.chatId);
             return {
                 success: false,
                 error: error.message
@@ -426,35 +429,30 @@ class ProspectsService {
     async extractProspectsFromAllChats(chats, dataService) {
         try {
             console.log(`📊 Analizando ${chats.length} chats para extraer prospectos...`);
-            
+
             const prospects = [];
             const errors = [];
 
             for (const chat of chats) {
                 try {
                     console.log(`📋 Procesando chat: ${chat.id} - ${chat.name || chat.userName || 'Sin nombre'}`);
-                    
                     // Obtener mensajes del chat
                     const messagesResult = await dataService.getAllChatMessages(chat.id);
-                    
+
                     if (messagesResult.success && messagesResult.data) {
                         console.log(`  ✅ ${messagesResult.data.length} mensajes obtenidos`);
                         // Analizar chat
                         const prospectData = await this.analyzeChat(chat, messagesResult.data);
-                        
+
                         if (prospectData) {
-                            console.log(`  ✅ Prospecto extraído: ${prospectData.nombre}`);
                             prospects.push(prospectData);
-                        } else {
-                            console.log(`  ⚠️ No se pudo crear prospecto para este chat`);
                         }
                     } else {
-                        console.log(`  ⚠️ No se pudieron obtener mensajes: ${messagesResult.error || 'Sin datos'}`);
-                        // Intentar crear prospecto con datos del chat aunque no haya mensajes
-                        const prospectFromChat = this.createProspectFromChatData(chat, []);
-                        if (prospectFromChat) {
-                            console.log(`  ✅ Prospecto creado desde datos del chat: ${prospectFromChat.nombre}`);
-                            prospects.push(prospectFromChat);
+                        console.warn(`  ⚠️ No se pudieron obtener mensajes para el chat ${chat.id}: ${messagesResult.error || 'Desconocido'}`);
+                        // Si no hay mensajes, aún podemos intentar crear un prospecto con la información del chat
+                        const prospectData = await this.analyzeChat(chat, []); // Pasar array vacío para que use fallback
+                        if (prospectData) {
+                            prospects.push(prospectData);
                         }
                     }
                 } catch (error) {
@@ -483,8 +481,3 @@ class ProspectsService {
 
 // Crear instancia global
 window.prospectsService = new ProspectsService();
-
-// Exportar para uso en módulos
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ProspectsService;
-}
