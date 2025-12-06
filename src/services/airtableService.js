@@ -530,17 +530,23 @@ class AirtableService {
             
             const url = `${this.apiBase}/${this.baseId}/Prospectos`;
             
-            // Solo guardar campos obligatorios (que sí existen en Airtable)
-            // Airtable usa "nombre" y "chat_id" como nombres de campos (sin prefijo "A ")
+            // Campos obligatorios
             const fields = {
                 'nombre': prospectData.nombre || '',
                 'chat_id': prospectData.chatId || '',
                 'fecha_extraccion': prospectData.fechaExtraccion || new Date().toISOString()
             };
 
-            // Campos opcionales - Solo agregar si el campo existe en Airtable
-            // Por ahora, solo guardamos los 3 campos obligatorios para evitar errores
-            // Los demás campos se pueden agregar después cuando se creen en Airtable
+            // Campos opcionales - Solo agregar si tienen datos
+            // Guardar imágenes como JSON string si existen
+            if (prospectData.imagenesUrls && Array.isArray(prospectData.imagenesUrls) && prospectData.imagenesUrls.length > 0) {
+                fields['imagenes_urls'] = JSON.stringify(prospectData.imagenesUrls);
+            }
+            
+            // Guardar documentos como JSON string si existen
+            if (prospectData.documentosUrls && Array.isArray(prospectData.documentosUrls) && prospectData.documentosUrls.length > 0) {
+                fields['documentos_urls'] = JSON.stringify(prospectData.documentosUrls);
+            }
 
             const payload = { fields };
 
