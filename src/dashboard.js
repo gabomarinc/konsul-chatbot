@@ -5994,8 +5994,17 @@ class ChatbotDashboard {
         modal.className = 'modal-overlay prospect-modal';
         modal.id = 'prospectModal';
 
-        const imagenes = prospect.imagenesUrls || [];
-        const documentos = prospect.documentosUrls || [];
+        // Normalizar imágenes - puede ser array de strings o array de objetos
+        let imagenes = prospect.imagenesUrls || [];
+        if (imagenes.length > 0 && typeof imagenes[0] === 'object' && imagenes[0].url) {
+            imagenes = imagenes.map(img => img.url || img);
+        }
+        
+        // Normalizar documentos - puede ser array de strings o array de objetos
+        let documentos = prospect.documentosUrls || [];
+        if (documentos.length > 0 && typeof documentos[0] === 'object' && documentos[0].url) {
+            documentos = documentos.map(doc => typeof doc === 'string' ? doc : doc);
+        }
 
         modal.innerHTML = `
             <div class="modal-content modal-large">
