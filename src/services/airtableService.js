@@ -725,6 +725,55 @@ class AirtableService {
         }
     }
 
+    async getProspectById(recordId) {
+        try {
+            console.log('🔍 Obteniendo prospecto por ID:', recordId);
+            
+            const url = `${this.apiBase}/${this.baseId}/Prospectos/${recordId}`;
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'Error obteniendo prospecto');
+            }
+
+            const record = await response.json();
+            console.log('📋 Record obtenido de Airtable (raw):', {
+                id: record.id,
+                campos: Object.keys(record.fields || {}),
+                tieneComentarios: !!(record.fields && record.fields.comentarios),
+                comentariosRaw: record.fields && record.fields.comentarios ? record.fields.comentarios.substring(0, 50) + '...' : null
+            });
+            
+            const prospect = this.transformAirtableProspect(record);
+            
+            console.log('✅ Prospecto transformado:', {
+                id: prospect.id,
+                nombre: prospect.nombre,
+                tieneComentarios: !!prospect.comentarios,
+                comentariosLength: prospect.comentarios ? prospect.comentarios.length : 0,
+                comentarios: prospect.comentarios ? prospect.comentarios.substring(0, 50) + '...' : null
+            });
+            
+            return {
+                success: true,
+                prospect: prospect
+            };
+
+        } catch (error) {
+            console.error('❌ Error obteniendo prospecto por ID:', error);
+            return {
+                success: false,
+                error: error.message,
+                prospect: null
+            };
+        }
+    }
+
     async updateProspect(recordId, prospectData) {
         try {
             console.log('📝 Actualizando prospecto en Airtable:', recordId);

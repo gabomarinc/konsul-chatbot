@@ -5885,8 +5885,22 @@ class ChatbotDashboard {
         // Event listeners
         const viewBtn = row.querySelector('.view-prospect-btn');
         if (viewBtn) {
-            viewBtn.addEventListener('click', () => {
-                this.showProspectModal(prospect);
+            viewBtn.addEventListener('click', async () => {
+                // Recargar el prospecto desde Airtable para obtener los comentarios más recientes
+                try {
+                    console.log('🔄 Recargando prospecto desde Airtable para mostrar comentarios actualizados...');
+                    const result = await window.airtableService.getProspectById(prospect.id);
+                    if (result.success && result.prospect) {
+                        console.log('✅ Prospecto recargado, comentarios:', result.prospect.comentarios ? 'Sí' : 'No');
+                        this.showProspectModal(result.prospect);
+                    } else {
+                        console.warn('⚠️ No se pudo recargar el prospecto, usando datos en memoria');
+                        this.showProspectModal(prospect);
+                    }
+                } catch (error) {
+                    console.error('❌ Error recargando prospecto:', error);
+                    this.showProspectModal(prospect);
+                }
             });
         }
 
@@ -6022,6 +6036,15 @@ class ChatbotDashboard {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay prospect-modal';
         modal.id = 'prospectModal';
+
+        // Debug: Verificar comentarios del prospecto
+        console.log('📝 Prospecto recibido en modal:', {
+            id: prospect.id,
+            nombre: prospect.nombre,
+            comentarios: prospect.comentarios,
+            tieneComentarios: !!prospect.comentarios,
+            longitudComentarios: prospect.comentarios ? prospect.comentarios.length : 0
+        });
 
         // Normalizar imágenes - puede ser array de strings o array de objetos
         let imagenes = prospect.imagenesUrls || [];
