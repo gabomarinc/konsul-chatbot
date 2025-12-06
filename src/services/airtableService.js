@@ -633,7 +633,9 @@ class AirtableService {
             
             for (const fieldName of fieldNames) {
                 try {
-                    const formula = encodeURIComponent(`{${fieldName}} = '${chatId}'`);
+                    // Escapar comillas simples en el chatId para evitar problemas en la fórmula
+                    const escapedChatId = chatId.replace(/'/g, "\\'");
+                    const formula = encodeURIComponent(`{${fieldName}} = '${escapedChatId}'`);
                     const url = `${this.apiBase}/${this.baseId}/Prospectos?filterByFormula=${formula}`;
                     
                     response = await fetch(url, {
