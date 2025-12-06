@@ -2727,16 +2727,57 @@ body {
     color: white;
 }
 
+/* Asegurar que las imágenes sean visibles en mensajes del usuario */
+.message.user .message-image {
+    background: transparent !important;
+    margin-top: 0.5rem;
+}
+
+.message.user .message-image img {
+    background: white;
+    padding: 4px;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
 .message-text {
     line-height: 1.4;
     word-wrap: break-word;
 }
 
-.message-image img {
-    max-width: 200px;
-    max-height: 200px;
-    border-radius: 8px;
+.message-image {
     margin-top: 0.5rem;
+}
+
+.message-image img {
+    max-width: 300px;
+    max-height: 300px;
+    border-radius: 8px;
+    display: block;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.message-image img:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* Asegurar que las imágenes sean visibles en mensajes del usuario (fondo azul) */
+.message.user .message-image {
+    background: transparent;
+}
+
+.message.user .message-image img {
+    background: white;
+    padding: 4px;
+}
+
+/* Asegurar que las imágenes sean visibles en mensajes del agente (fondo gris) */
+.message.agent .message-image {
+    background: transparent;
 }
 
 .message-audio {

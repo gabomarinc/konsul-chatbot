@@ -2706,15 +2706,17 @@ class ChatbotDashboard {
                                      urlToCheck.startsWith('data:image');
                     
                     if (isImageUrl || message.type === 'image') {
-                        console.log(`🖼️ Imagen detectada en mensaje ${message.id}:`, {
+                        console.log(`🖼️ Imagen detectada en mensaje ${message.id} (${isUser ? 'USUARIO' : 'AGENTE'}):`, {
                             type: message.type,
+                            role: message.role,
                             url: urlToCheck,
+                            isUser: isUser,
                             fields: Object.keys(message)
                         });
                         
                         messageContent += `<div class="message-image">
                             <img src="${urlToCheck}" alt="Imagen enviada" 
-                                 style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;"
+                                 style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer; display: block;"
                                  onerror="console.error('Error cargando imagen:', this.src)"
                                  onclick="window.open(this.src, '_blank')">
                         </div>`;
