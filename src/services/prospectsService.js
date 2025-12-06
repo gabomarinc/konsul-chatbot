@@ -107,24 +107,33 @@ class ProspectsService {
                 return;
             }
             
-            // Buscar imagen en múltiples campos posibles
+            // Buscar imagen en múltiples campos posibles (misma lógica que el dashboard)
             const imageUrl = message.imageUrl || 
                            message.image || 
                            message.mediaUrl || 
                            message.attachmentUrl ||
                            message.media?.url || 
-                           message.attachment?.url ||
+                           message.attachment?.url || 
                            (message.media && typeof message.media === 'string' ? message.media : null) ||
                            message.url ||
-                           message.fileUrl;
+                           message.fileUrl ||
+                           message.file?.url ||
+                           message.photo ||
+                           message.photoUrl ||
+                           (message.content && typeof message.content === 'string' && message.content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i)?.[0]);
             
-            // Verificar si es una imagen
-            const isImage = message.type === 'image' || 
-                          (imageUrl && (
+            // Verificar si es una imagen (misma lógica que el dashboard)
+            const messageType = (message.type || '').toLowerCase();
+            const isImageType = messageType === 'image' || messageType === 'photo' || message.type === 'IMAGE';
+            const isImageUrl = imageUrl && (
                               /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(imageUrl) ||
                               imageUrl.includes('image') ||
-                              imageUrl.startsWith('data:image')
-                          ));
+                              imageUrl.includes('photo') ||
+                              imageUrl.startsWith('data:image') ||
+                              imageUrl.startsWith('blob:') ||
+                              imageUrl.includes('gpt-files.com') // GPTMaker URLs
+                          );
+            const isImage = isImageType || isImageUrl;
             
             if (isImage && imageUrl) {
                 images.push({
@@ -181,13 +190,72 @@ class ProspectsService {
         const documents = [];
 
         messages.forEach(message => {
-            if (message.role === userId && message.type === 'document' && message.documentUrl) {
+            // Solo procesar mensajes del usuario especificado
+            if (message.role !== userId) {
+                return;
+            }
+            
+            // Buscar documento en múltiples campos posibles
+            const documentUrl = message.documentUrl ||
+                              message.fileUrl ||
+                              message.file?.url ||
+                              message.attachmentUrl ||
+                              message.attachment?.url ||
+                              message.mediaUrl ||
+                              message.media?.url ||
+                              (message.url && !message.url.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)/i) ? message.url : null);
+            
+            // Verificar si es un documento (no imagen)
+            const messageType = (message.type || '').toLowerCase();
+            const isImageType = messageType === 'image' || messageType === 'photo' || message.type === 'IMAGE';
+            const isDocumentType = messageType === 'document' || messageType === 'file' || messageType === 'pdf';
+            const isDocumentUrl = documentUrl && (
+                /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv)/i.test(documentUrl) ||
+                documentUrl.includes('document') ||
+                documentUrl.includes('file') ||
+                (messageType !== 'image' && messageType !== 'photo' && documentUrl)
+            );
+            const isDocument = isDocumentType || (isDocumentUrl && !isImageType);
+            
+            if (isDocument && documentUrl) {
+                // Determinar tipo de archivo
+                let fileType = 'document';
+                if (documentUrl.toLowerCase().endsWith('.pdf')) {
+                    fileType = 'pdf';
+                } else if (documentUrl.match(/\.(doc|docx)/i)) {
+                    fileType = 'word';
+                } else if (documentUrl.match(/\.(xls|xlsx)/i)) {
+                    fileType = 'excel';
+                }
+                
                 documents.push({
-                    url: message.documentUrl,
-                    fileName: message.fileName || 'documento_desconocido',
-                    type: message.fileType || 'application/octet-stream',
+                    url: documentUrl,
+                    fileName: message.fileName || message.name || `documento_${documents.length + 1}`,
+                    type: fileType,
                     timestamp: message.time || message.timestamp,
                     messageId: message.id
+                });
+                console.log(`📄 Documento extraído del usuario:`, documentUrl);
+            }
+            
+            // Buscar en arrays de attachments
+            if (message.attachments && Array.isArray(message.attachments)) {
+                message.attachments.forEach(attachment => {
+                    const attachmentUrl = attachment.url || attachment.documentUrl || attachment.fileUrl;
+                    if (attachmentUrl && attachment.type !== 'image' && !/\.(jpg|jpeg|png|gif|webp)/i.test(attachmentUrl)) {
+                        let fileType = 'document';
+                        if (attachmentUrl.toLowerCase().endsWith('.pdf')) {
+                            fileType = 'pdf';
+                        }
+                        documents.push({
+                            url: attachmentUrl,
+                            fileName: attachment.fileName || attachment.name || 'documento',
+                            type: fileType,
+                            timestamp: message.time || message.timestamp,
+                            messageId: message.id
+                        });
+                        console.log(`📄 Documento extraído de attachments:`, attachmentUrl);
+                    }
                 });
             }
         });
@@ -359,8 +427,40 @@ class ProspectsService {
                 const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
                 
                 if (existing.success && existing.prospect) {
-                    // Prospecto ya existe - NO crear duplicado
-                    console.log(`✅ Prospecto ya existe (ID: ${existing.prospect.id}, nombre: ${existing.prospect.nombre}), saltando creación para evitar duplicado`);
+                    // Prospecto ya existe - Actualizar con imágenes/documentos si no los tiene o si hay nuevos
+                    console.log(`✅ Prospecto ya existe (ID: ${existing.prospect.id}, nombre: ${existing.prospect.nombre})`);
+                    
+                    // Verificar si necesita actualizar con imágenes/documentos
+                    const hasNewImages = prospectData.imagenesUrls && prospectData.imagenesUrls.length > 0;
+                    const hasNewDocuments = prospectData.documentosUrls && prospectData.documentosUrls.length > 0;
+                    const existingHasImages = existing.prospect.imagenesUrls && existing.prospect.imagenesUrls.length > 0;
+                    const existingHasDocuments = existing.prospect.documentosUrls && existing.prospect.documentosUrls.length > 0;
+                    
+                    if ((hasNewImages && !existingHasImages) || (hasNewDocuments && !existingHasDocuments)) {
+                        console.log(`🔄 Actualizando prospecto existente con imágenes/documentos...`);
+                        console.log(`   - Imágenes nuevas: ${hasNewImages ? prospectData.imagenesUrls.length : 0}, existentes: ${existingHasImages ? existing.prospect.imagenesUrls.length : 0}`);
+                        console.log(`   - Documentos nuevos: ${hasNewDocuments ? prospectData.documentosUrls.length : 0}, existentes: ${existingHasDocuments ? existing.prospect.documentosUrls.length : 0}`);
+                        
+                        const updateResult = await this.airtableService.updateProspect(existing.prospect.id, {
+                            imagenesUrls: prospectData.imagenesUrls,
+                            documentosUrls: prospectData.documentosUrls
+                        });
+                        
+                        if (updateResult.success) {
+                            console.log(`✅ Prospecto actualizado con imágenes/documentos`);
+                            return {
+                                success: true,
+                                prospect: updateResult.prospect,
+                                alreadyExists: true,
+                                wasUpdated: true
+                            };
+                        } else {
+                            console.warn(`⚠️ No se pudo actualizar prospecto: ${updateResult.error}`);
+                        }
+                    } else {
+                        console.log(`⏭️ Prospecto ya tiene imágenes/documentos o no hay nuevos, no se actualiza`);
+                    }
+                    
                     return {
                         success: true,
                         prospect: existing.prospect,
