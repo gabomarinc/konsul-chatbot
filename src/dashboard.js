@@ -64,6 +64,7 @@ class ChatbotDashboard {
         this.setupChatsManagement();
         this.setupAgentsManagement();
         this.setupAttendancesManagement();
+        this.setupProspectsManagement();
         this.setupHeaderNotifications();
         this.setupNotificationsAndPolling();
     }
@@ -1181,6 +1182,7 @@ class ChatbotDashboard {
             team: 'Equipo',
             agents: 'Agentes IA',
             attendances: 'Atendimientos',
+            prospects: 'Prospectos',
             integrations: 'Integraciones',
             profile: 'Mi Perfil'
         };
@@ -5597,6 +5599,453 @@ class ChatbotDashboard {
         
         console.log('✅ Toda la cache ha sido limpiada');
         return true;
+    }
+
+    // ===== PROSPECTOS MANAGEMENT =====
+
+    setupProspectsManagement() {
+        console.log('👥 Configurando gestión de prospectos...');
+
+        // Botón de sincronizar
+        const refreshBtn = document.getElementById('refreshProspectsBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async () => {
+                await this.loadProspects();
+            });
+        }
+
+        // Botón de extraer prospectos
+        const extractBtn = document.getElementById('extractProspectsBtn');
+        if (extractBtn) {
+            extractBtn.addEventListener('click', async () => {
+                await this.extractProspectsFromChats();
+            });
+        }
+
+        // Cargar prospectos al entrar a la sección
+        this.loadProspects();
+    }
+
+    async loadProspects() {
+        try {
+            console.log('📊 Cargando prospectos...');
+            
+            if (!window.prospectsService) {
+                console.error('❌ ProspectsService no disponible');
+                this.showNotification('Error: Servicio de prospectos no disponible', 'error');
+                return;
+            }
+
+            const result = await window.prospectsService.getAllProspects();
+            
+            if (result.success) {
+                this.renderProspects(result.data || []);
+                console.log(`✅ ${result.data.length} prospectos cargados`);
+            } else {
+                throw new Error(result.error || 'Error cargando prospectos');
+            }
+        } catch (error) {
+            console.error('❌ Error cargando prospectos:', error);
+            this.showNotification('Error al cargar los prospectos', 'error');
+        }
+    }
+
+    renderProspects(prospects) {
+        const prospectsList = document.getElementById('prospectsList');
+        if (!prospectsList) return;
+
+        prospectsList.innerHTML = '';
+
+        if (prospects.length === 0) {
+            prospectsList.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center">
+                        <div class="no-prospects">
+                            <i class="fas fa-user-friends"></i>
+                            <h3>No hay prospectos</h3>
+                            <p>Haz clic en "Extraer Prospectos" para analizar los chats y extraer información</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        prospects.forEach(prospect => {
+            const row = this.createProspectRow(prospect);
+            prospectsList.appendChild(row);
+        });
+    }
+
+    createProspectRow(prospect) {
+        const row = document.createElement('tr');
+        
+        const nombre = prospect.nombre || 'Sin nombre';
+        const canal = prospect.canal || 'N/A';
+        const telefono = prospect.telefono || 'N/A';
+        const fechaExtraccion = prospect.fechaExtraccion 
+            ? new Date(prospect.fechaExtraccion).toLocaleDateString('es-ES')
+            : 'N/A';
+        const estado = prospect.estado || 'Nuevo';
+        const imagenesCount = prospect.imagenesUrls?.length || 0;
+        const documentosCount = prospect.documentosUrls?.length || 0;
+
+        row.innerHTML = `
+            <td>
+                <strong>${nombre}</strong>
+            </td>
+            <td>${canal}</td>
+            <td>${telefono}</td>
+            <td>${fechaExtraccion}</td>
+            <td>
+                <span class="prospect-status status-${estado.toLowerCase()}">${estado}</span>
+            </td>
+            <td>
+                <div class="prospect-actions">
+                    <button class="btn btn-sm btn-primary view-prospect-btn" data-prospect-id="${prospect.id}">
+                        <i class="fas fa-eye"></i>
+                        Ver Prospecto
+                    </button>
+                    <button class="btn btn-sm btn-outline go-to-chat-btn" data-chat-id="${prospect.chatId}">
+                        <i class="fas fa-comments"></i>
+                        Ir al Chat
+                    </button>
+                </div>
+            </td>
+        `;
+
+        // Event listeners
+        const viewBtn = row.querySelector('.view-prospect-btn');
+        if (viewBtn) {
+            viewBtn.addEventListener('click', () => {
+                this.showProspectModal(prospect);
+            });
+        }
+
+        const chatBtn = row.querySelector('.go-to-chat-btn');
+        if (chatBtn) {
+            chatBtn.addEventListener('click', async () => {
+                await this.navigateToChat(prospect.chatId);
+            });
+        }
+
+        return row;
+    }
+
+    async navigateToChat(chatId) {
+        try {
+            // Navegar a la sección de chats
+            this.navigateToSection('chats');
+            
+            // Esperar un momento para que se cargue la sección
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Buscar y seleccionar el chat
+            const chat = this.dashboardData.chats.find(c => c.id === chatId);
+            if (chat) {
+                await this.selectChat(chat);
+            } else {
+                // Si no está cargado, cargarlo primero
+                await this.loadRealData();
+                const chatAfterLoad = this.dashboardData.chats.find(c => c.id === chatId);
+                if (chatAfterLoad) {
+                    await this.selectChat(chatAfterLoad);
+                } else {
+                    this.showNotification('Chat no encontrado', 'error');
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error navegando al chat:', error);
+            this.showNotification('Error al abrir el chat', 'error');
+        }
+    }
+
+    async extractProspectsFromChats() {
+        try {
+            this.showNotification('Extrayendo prospectos de los chats...', 'info');
+            
+            if (!window.prospectsService) {
+                throw new Error('ProspectsService no disponible');
+            }
+
+            // Obtener todos los chats
+            const chats = this.dashboardData.chats || [];
+            
+            if (chats.length === 0) {
+                this.showNotification('No hay chats para analizar. Primero carga los chats.', 'warning');
+                return;
+            }
+
+            // Extraer prospectos
+            const result = await window.prospectsService.extractProspectsFromAllChats(chats, this.dataService);
+            
+            if (result.success) {
+                // Guardar cada prospecto en Airtable
+                let savedCount = 0;
+                let errorCount = 0;
+
+                for (const prospectData of result.prospects) {
+                    const saveResult = await window.prospectsService.saveProspect(prospectData);
+                    if (saveResult.success) {
+                        savedCount++;
+                    } else {
+                        errorCount++;
+                        console.error('Error guardando prospecto:', saveResult.error);
+                    }
+                }
+
+                this.showNotification(
+                    `✅ ${savedCount} prospectos extraídos y guardados${errorCount > 0 ? ` (${errorCount} errores)` : ''}`,
+                    savedCount > 0 ? 'success' : 'error'
+                );
+
+                // Recargar la lista
+                await this.loadProspects();
+            } else {
+                throw new Error(result.error || 'Error extrayendo prospectos');
+            }
+        } catch (error) {
+            console.error('❌ Error extrayendo prospectos:', error);
+            this.showNotification('Error al extraer prospectos: ' + error.message, 'error');
+        }
+    }
+
+    showProspectModal(prospect) {
+        // Crear modal
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay prospect-modal';
+        modal.id = 'prospectModal';
+
+        const imagenes = prospect.imagenesUrls || [];
+        const documentos = prospect.documentosUrls || [];
+
+        modal.innerHTML = `
+            <div class="modal-content modal-large">
+                <div class="modal-header">
+                    <h2>
+                        <i class="fas fa-user"></i>
+                        Ver Prospecto: ${prospect.nombre || 'Sin nombre'}
+                    </h2>
+                    <button class="modal-close" id="closeProspectModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="prospect-info-section">
+                        <h3><i class="fas fa-info-circle"></i> Información</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <label>Nombre:</label>
+                                <span>${prospect.nombre || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Teléfono:</label>
+                                <span>${prospect.telefono || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Canal:</label>
+                                <span>${prospect.canal || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Estado:</label>
+                                <span class="prospect-status status-${(prospect.estado || 'Nuevo').toLowerCase()}">${prospect.estado || 'Nuevo'}</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Fecha Extracción:</label>
+                                <span>${prospect.fechaExtraccion ? new Date(prospect.fechaExtraccion).toLocaleString('es-ES') : 'N/A'}</span>
+                            </div>
+                            ${prospect.fechaUltimoMensaje ? `
+                            <div class="info-item">
+                                <label>Último Mensaje:</label>
+                                <span>${new Date(prospect.fechaUltimoMensaje).toLocaleString('es-ES')}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    ${imagenes.length > 0 ? `
+                    <div class="prospect-images-section">
+                        <h3><i class="fas fa-images"></i> Imágenes (${imagenes.length})</h3>
+                        <div class="images-gallery" id="prospectImagesGallery">
+                            ${imagenes.map((imgUrl, index) => `
+                                <div class="gallery-item" data-image-index="${index}">
+                                    <img src="${imgUrl}" alt="Imagen ${index + 1}" loading="lazy">
+                                    <div class="gallery-overlay">
+                                        <button class="btn btn-sm btn-primary view-image-btn" data-image-url="${imgUrl}">
+                                            <i class="fas fa-expand"></i> Ampliar
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    ${documentos.length > 0 ? `
+                    <div class="prospect-documents-section">
+                        <h3><i class="fas fa-file-pdf"></i> Documentos (${documentos.length})</h3>
+                        <div class="documents-list">
+                            ${documentos.map(doc => `
+                                <div class="document-item">
+                                    <i class="fas fa-file-${doc.type === 'pdf' ? 'pdf' : 'alt'}"></i>
+                                    <div class="document-info">
+                                        <span class="document-name">${doc.fileName || 'Documento'}</span>
+                                        <div class="document-actions">
+                                            <a href="${doc.url}" target="_blank" class="btn btn-sm btn-outline">
+                                                <i class="fas fa-external-link-alt"></i> Ver
+                                            </a>
+                                            <a href="${doc.url}" download class="btn btn-sm btn-primary">
+                                                <i class="fas fa-download"></i> Descargar
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    ${imagenes.length === 0 && documentos.length === 0 ? `
+                    <div class="no-media-message">
+                        <i class="fas fa-image"></i>
+                        <p>Este prospecto no ha enviado imágenes ni documentos aún.</p>
+                    </div>
+                    ` : ''}
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-outline" id="closeProspectModalBtn">Cerrar</button>
+                    <button class="btn btn-primary" id="goToChatFromModal" data-chat-id="${prospect.chatId}">
+                        <i class="fas fa-comments"></i>
+                        Ir al Chat
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Event listeners
+        const closeBtn = document.getElementById('closeProspectModal');
+        const closeBtn2 = document.getElementById('closeProspectModalBtn');
+        const goToChatBtn = document.getElementById('goToChatFromModal');
+
+        const closeModal = () => {
+            if (document.body.contains(modal)) {
+                document.body.removeChild(modal);
+            }
+        };
+
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        if (closeBtn2) closeBtn2.addEventListener('click', closeModal);
+        if (goToChatBtn) {
+            goToChatBtn.addEventListener('click', async () => {
+                await this.navigateToChat(prospect.chatId);
+                closeModal();
+            });
+        }
+
+        // Lightbox para imágenes
+        const imageButtons = modal.querySelectorAll('.view-image-btn');
+        imageButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const imageUrl = e.target.closest('.view-image-btn').dataset.imageUrl;
+                this.showImageLightbox(imageUrl, imagenes);
+            });
+        });
+
+        // Click fuera del modal para cerrar
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+    }
+
+    showImageLightbox(imageUrl, allImages) {
+        const lightbox = document.createElement('div');
+        lightbox.className = 'image-lightbox';
+        
+        const currentIndex = allImages.findIndex(url => url === imageUrl);
+        
+        lightbox.innerHTML = `
+            <div class="lightbox-content">
+                <button class="lightbox-close" id="closeLightbox">
+                    <i class="fas fa-times"></i>
+                </button>
+                ${currentIndex > 0 ? `
+                    <button class="lightbox-nav lightbox-prev" id="prevImage">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                ` : ''}
+                <img src="${imageUrl}" alt="Imagen ampliada" id="lightboxImage">
+                ${currentIndex < allImages.length - 1 ? `
+                    <button class="lightbox-nav lightbox-next" id="nextImage">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                ` : ''}
+                <div class="lightbox-counter">
+                    ${currentIndex + 1} / ${allImages.length}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(lightbox);
+
+        let currentImgIndex = currentIndex;
+
+        const updateImage = (index) => {
+            if (index >= 0 && index < allImages.length) {
+                currentImgIndex = index;
+                const img = document.getElementById('lightboxImage');
+                img.src = allImages[index];
+                
+                // Actualizar navegación
+                const prevBtn = document.getElementById('prevImage');
+                const nextBtn = document.getElementById('nextImage');
+                const counter = lightbox.querySelector('.lightbox-counter');
+                
+                if (prevBtn) prevBtn.style.display = index > 0 ? 'block' : 'none';
+                if (nextBtn) nextBtn.style.display = index < allImages.length - 1 ? 'block' : 'none';
+                if (counter) counter.textContent = `${index + 1} / ${allImages.length}`;
+            }
+        };
+
+        const closeLightbox = () => {
+            if (document.body.contains(lightbox)) {
+                document.body.removeChild(lightbox);
+            }
+        };
+
+        // Event listeners
+        document.getElementById('closeLightbox').addEventListener('click', closeLightbox);
+        
+        const prevBtn = document.getElementById('prevImage');
+        const nextBtn = document.getElementById('nextImage');
+        
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => updateImage(currentImgIndex - 1));
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => updateImage(currentImgIndex + 1));
+        }
+
+        // Cerrar con ESC
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                closeLightbox();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+
+        // Click fuera para cerrar
+        lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox) {
+                closeLightbox();
+            }
+        });
     }
 
 }

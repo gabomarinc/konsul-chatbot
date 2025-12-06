@@ -47,6 +47,12 @@
                             <span>Atendimientos</span>
                         </a>
                     </li>
+                    <li class="nav-item" data-section="prospects">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-user-friends"></i>
+                            <span>Prospectos</span>
+                        </a>
+                    </li>
                     <li class="nav-item" data-section="integrations">
                         <a href="#" class="nav-link">
                             <i class="fas fa-rocket"></i>
@@ -504,6 +510,41 @@
                     </div>
                 </section>
 
+                <!-- Prospectos Section -->
+                <section class="content-section" id="prospects">
+                    <div class="section-header">
+                        <h2>Prospectos</h2>
+                        <div class="section-actions">
+                            <button class="btn btn-outline" id="refreshProspectsBtn">
+                                <i class="fas fa-sync-alt"></i>
+                                Sincronizar
+                            </button>
+                            <button class="btn btn-primary" id="extractProspectsBtn">
+                                <i class="fas fa-user-plus"></i>
+                                Extraer Prospectos
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="prospects-table-container">
+                        <table class="prospects-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Canal</th>
+                                    <th>Teléfono</th>
+                                    <th>Fecha Extracción</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prospectsList">
+                                <!-- Prospects will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
                 <!-- Mejoras Section -->
                 <section class="content-section" id="integrations">
                     <div class="section-header">
@@ -602,6 +643,7 @@
     <script src="src/services/notificationService.js"></script>
     <script src="src/services/pollingService.js"></script>
     <script src="src/services/stripeService.js"></script>
+    <script src="src/services/prospectsService.js"></script>
     
     <!-- Autenticación -->
     <script src="src/auth/mockData.js"></script>

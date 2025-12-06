@@ -521,6 +521,261 @@ class AirtableService {
             return { success: false, error: error.message };
         }
     }
+
+    // ===== MÉTODOS DE PROSPECTOS =====
+
+    async createProspect(prospectData) {
+        try {
+            console.log('📝 Creando prospecto en Airtable:', prospectData.nombre);
+            
+            const url = `${this.apiBase}/${this.baseId}/Prospectos`;
+            
+            const fields = {
+                'nombre': prospectData.nombre || '',
+                'chat_id': prospectData.chatId || '',
+                'fecha_extraccion': prospectData.fechaExtraccion || new Date().toISOString()
+            };
+
+            // Campos opcionales
+            if (prospectData.telefono) fields['telefono'] = prospectData.telefono;
+            if (prospectData.canal) fields['canal'] = prospectData.canal;
+            if (prospectData.estado) fields['estado'] = prospectData.estado;
+            if (prospectData.imagenesUrls) {
+                fields['imagenes_urls'] = Array.isArray(prospectData.imagenesUrls) 
+                    ? JSON.stringify(prospectData.imagenesUrls) 
+                    : prospectData.imagenesUrls;
+            }
+            if (prospectData.documentosUrls) {
+                fields['documentos_urls'] = Array.isArray(prospectData.documentosUrls) 
+                    ? JSON.stringify(prospectData.documentosUrls) 
+                    : prospectData.documentosUrls;
+            }
+            if (prospectData.agenteId) fields['agente_id'] = prospectData.agenteId;
+            if (prospectData.fechaUltimoMensaje) fields['fecha_ultimo_mensaje'] = prospectData.fechaUltimoMensaje;
+            if (prospectData.notas) fields['notas'] = prospectData.notas;
+
+            const payload = { fields };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'Error creando prospecto en Airtable');
+            }
+
+            const data = await response.json();
+            console.log('✅ Prospecto creado en Airtable:', data.id);
+            
+            return {
+                success: true,
+                prospect: this.transformAirtableProspect(data)
+            };
+
+        } catch (error) {
+            console.error('❌ Error creando prospecto en Airtable:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    async getAllProspects(options = {}) {
+        try {
+            console.log('🔍 Obteniendo todos los prospectos de Airtable...');
+            
+            let url = `${this.apiBase}/${this.baseId}/Prospectos`;
+            const params = [];
+            
+            if (options.maxRecords) params.push(`maxRecords=${options.maxRecords}`);
+            if (options.pageSize) params.push(`pageSize=${options.pageSize}`);
+            if (options.view) params.push(`view=${encodeURIComponent(options.view)}`);
+            
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'Error obteniendo prospectos');
+            }
+
+            const data = await response.json();
+            console.log(`✅ ${data.records.length} prospectos obtenidos de Airtable`);
+            
+            const prospects = data.records
+                .map(record => this.transformAirtableProspect(record))
+                .filter(prospect => prospect !== null);
+
+            return {
+                success: true,
+                data: prospects,
+                total: prospects.length,
+                source: 'airtable'
+            };
+
+        } catch (error) {
+            console.error('❌ Error obteniendo prospectos de Airtable:', error);
+            return {
+                success: false,
+                error: error.message,
+                data: [],
+                source: 'airtable'
+            };
+        }
+    }
+
+    async getProspectByChatId(chatId) {
+        try {
+            console.log('🔍 Buscando prospecto por chat_id:', chatId);
+            
+            const formula = encodeURIComponent(`{chat_id} = '${chatId}'`);
+            const url = `${this.apiBase}/${this.baseId}/Prospectos?filterByFormula=${formula}`;
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'Error buscando prospecto');
+            }
+
+            const data = await response.json();
+            
+            if (data.records && data.records.length > 0) {
+                const prospect = this.transformAirtableProspect(data.records[0]);
+                console.log('✅ Prospecto encontrado:', prospect);
+                return {
+                    success: true,
+                    prospect: prospect
+                };
+            } else {
+                console.log('⚠️ No se encontró prospecto con chat_id:', chatId);
+                return {
+                    success: false,
+                    prospect: null
+                };
+            }
+
+        } catch (error) {
+            console.error('❌ Error buscando prospecto por chat_id:', error);
+            return {
+                success: false,
+                error: error.message,
+                prospect: null
+            };
+        }
+    }
+
+    async updateProspect(recordId, prospectData) {
+        try {
+            console.log('📝 Actualizando prospecto en Airtable:', recordId);
+            
+            const url = `${this.apiBase}/${this.baseId}/Prospectos/${recordId}`;
+            
+            const fields = {};
+            if (prospectData.nombre !== undefined) fields['nombre'] = prospectData.nombre;
+            if (prospectData.telefono !== undefined) fields['telefono'] = prospectData.telefono;
+            if (prospectData.canal !== undefined) fields['canal'] = prospectData.canal;
+            if (prospectData.estado !== undefined) fields['estado'] = prospectData.estado;
+            if (prospectData.imagenesUrls !== undefined) {
+                fields['imagenes_urls'] = Array.isArray(prospectData.imagenesUrls) 
+                    ? JSON.stringify(prospectData.imagenesUrls) 
+                    : prospectData.imagenesUrls;
+            }
+            if (prospectData.documentosUrls !== undefined) {
+                fields['documentos_urls'] = Array.isArray(prospectData.documentosUrls) 
+                    ? JSON.stringify(prospectData.documentosUrls) 
+                    : prospectData.documentosUrls;
+            }
+            if (prospectData.agenteId !== undefined) fields['agente_id'] = prospectData.agenteId;
+            if (prospectData.fechaUltimoMensaje !== undefined) fields['fecha_ultimo_mensaje'] = prospectData.fechaUltimoMensaje;
+            if (prospectData.notas !== undefined) fields['notas'] = prospectData.notas;
+
+            const payload = { fields };
+
+            const response = await fetch(url, {
+                method: 'PATCH',
+                headers: this.getHeaders(),
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'Error actualizando prospecto');
+            }
+
+            const data = await response.json();
+            console.log('✅ Prospecto actualizado:', data.id);
+            
+            return {
+                success: true,
+                prospect: this.transformAirtableProspect(data)
+            };
+
+        } catch (error) {
+            console.error('❌ Error actualizando prospecto:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    transformAirtableProspect(record) {
+        if (!record || !record.fields) {
+            console.error('❌ Record inválido:', record);
+            return null;
+        }
+
+        const fields = record.fields;
+        
+        // Parsear URLs de imágenes y documentos
+        let imagenesUrls = [];
+        let documentosUrls = [];
+        
+        try {
+            if (fields.imagenes_urls) {
+                imagenesUrls = typeof fields.imagenes_urls === 'string' 
+                    ? JSON.parse(fields.imagenes_urls) 
+                    : fields.imagenes_urls;
+            }
+            if (fields.documentos_urls) {
+                documentosUrls = typeof fields.documentos_urls === 'string' 
+                    ? JSON.parse(fields.documentos_urls) 
+                    : fields.documentos_urls;
+            }
+        } catch (e) {
+            console.warn('⚠️ Error parseando URLs:', e);
+        }
+        
+        return {
+            id: record.id,
+            nombre: fields.nombre || fields.A_nombre || '',
+            chatId: fields.chat_id || fields.A_chat_id || '',
+            telefono: fields.telefono || '',
+            canal: fields.canal || '',
+            fechaExtraccion: fields.fecha_extraccion || fields.fecha_extraccion || '',
+            fechaUltimoMensaje: fields.fecha_ultimo_mensaje || fields.fecha_ultimo_mensaje || '',
+            estado: fields.estado || 'Nuevo',
+            imagenesUrls: imagenesUrls,
+            documentosUrls: documentosUrls,
+            agenteId: fields.agente_id || '',
+            notas: fields.notas || '',
+            createdTime: record.createdTime
+        };
+    }
 }
 
 // Crear instancia global
