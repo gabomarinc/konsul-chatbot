@@ -2,8 +2,9 @@
 console.log('🚀 Inicializando Dashboard Chatbot AI...');
 
 // Configuración global de GPTMaker
+// El token se carga dinámicamente desde localStorage o desde la configuración del usuario
 window.GPTMAKER_CONFIG = {
-    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJncHRtYWtlciIsImlkIjoiM0U2MTZFMDQ2RDI3RTFDQjYyM0JGRTVFOUE2RTlCREUiLCJ0ZW5hbnQiOiIzRTYxNkUwNDZEMjdFMUNCNjIzQkZFNUU5QTZFOUJERSIsInV1aWQiOiJjMDU1NGM1Yy1mYjhiLTQ5YjUtOGRhMy1mZGEzMTc1MGZlZDgifQ.el1Rog4MU6G0UJ8tBzsWhhnecYoZ6n7nUFC-6l1VpJE',
+    token: null, // Se cargará dinámicamente desde localStorage o configuración del usuario
     baseURL: 'https://api.gptmaker.ai'
 };
 

@@ -17,28 +17,49 @@ class GPTMakerConfig {
 
     loadConfig() {
         try {
-            // Intentar cargar desde localStorage primero
+            // 1. Intentar cargar desde localStorage con clave gptmaker_token
             const savedToken = localStorage.getItem('gptmaker_token');
             if (savedToken) {
                 this.config.token = savedToken;
-                console.log('✅ Token cargado desde localStorage');
+                console.log('✅ Token cargado desde localStorage (gptmaker_token)');
+                // También actualizar la configuración global
+                if (window.GPTMAKER_CONFIG) {
+                    window.GPTMAKER_CONFIG.token = savedToken;
+                }
                 return;
             }
 
-            // Intentar cargar desde configuración global
+            // 2. Intentar cargar desde localStorage con clave apiToken (compatibilidad)
+            const apiToken = localStorage.getItem('apiToken');
+            if (apiToken) {
+                this.config.token = apiToken;
+                // Migrar a gptmaker_token para consistencia
+                localStorage.setItem('gptmaker_token', apiToken);
+                console.log('✅ Token cargado desde localStorage (apiToken) y migrado a gptmaker_token');
+                // También actualizar la configuración global
+                if (window.GPTMAKER_CONFIG) {
+                    window.GPTMAKER_CONFIG.token = apiToken;
+                }
+                return;
+            }
+
+            // 3. Intentar cargar desde configuración global
             if (window.GPTMAKER_CONFIG && window.GPTMAKER_CONFIG.token) {
                 this.config.token = window.GPTMAKER_CONFIG.token;
                 this.config.baseURL = window.GPTMAKER_CONFIG.baseURL || this.config.baseURL;
+                // Guardar en localStorage para persistencia
+                localStorage.setItem('gptmaker_token', window.GPTMAKER_CONFIG.token);
                 console.log('✅ Configuración cargada desde window.GPTMAKER_CONFIG');
                 return;
             }
 
-            // Token por defecto para desarrollo
-            this.config.token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJncHRtYWtlciIsImlkIjoiM0U2MTZFMDQ2RDI3RTFDQjYyM0JGRTVFOUE2RTlCREUiLCJ0ZW5hbnQiOiIzRTYxNkUwNDZEMjdFMUNCNjIzQkZFNUU5QTZFOUJERSIsInV1aWQiOiJjMDU1NGM1Yy1mYjhiLTQ5YjUtOGRhMy1mZGEzMTc1MGZlZDgifQ.el1Rog4MU6G0UJ8tBzsWhhnecYoZ6n7nUFC-6l1VpJE';
-            console.log('⚠️ Usando token por defecto para desarrollo');
+            // 4. No hay token configurado - el usuario debe configurarlo desde el perfil
+            console.log('ℹ️ No se encontró token configurado. Por favor, configura tu token desde la página de perfil.');
+            this.config.token = null;
             
         } catch (error) {
             console.error('❌ Error cargando configuración:', error);
+            this.config.token = null;
         }
     }
 
@@ -107,6 +128,13 @@ class GPTMakerConfig {
         if (newConfig.token) {
             this.setToken(newConfig.token);
         }
+    }
+    
+    // Método para recargar la configuración (útil después de cambios)
+    reloadConfig() {
+        console.log('🔄 Recargando configuración de GPTMaker...');
+        this.loadConfig();
+        console.log('✅ Configuración recargada');
     }
 }
 

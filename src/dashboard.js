@@ -517,6 +517,12 @@ class ChatbotDashboard {
         if (tabContent) {
             tabContent.classList.add('active');
         }
+        
+        // Si es la pestaña de configuración API, cargar el token
+        if (tabId === 'api-config') {
+            console.log('🔧 Cargando token de API para la pestaña de configuración...');
+            this.loadApiToken();
+        }
     }
 
     setupApiConfigForm() {
@@ -554,7 +560,7 @@ class ChatbotDashboard {
         if (!tokenInput) return;
 
         try {
-            // Try to load from Airtable first
+            // 1. Try to load from Airtable first (fuente de verdad principal)
             const currentUser = this.getCurrentUser();
             if (currentUser && window.airtableService && window.authService && window.authService.useAirtable) {
                 console.log('🗄️ Cargando token desde Airtable...');
@@ -562,17 +568,41 @@ class ChatbotDashboard {
                 const userResult = await window.airtableService.getUserByEmail(currentUser.email);
                 
                 if (userResult.success && userResult.user && userResult.user.token_api) {
-                    tokenInput.value = userResult.user.token_api;
-                    console.log('✅ Token de API cargado desde Airtable');
+                    const token = userResult.user.token_api;
+                    tokenInput.value = token;
+                    
+                    // Sincronizar con localStorage para consistencia
+                    localStorage.setItem('gptmaker_token', token);
+                    localStorage.setItem('apiToken', token);
+                    
+                    // Actualizar configuración global
+                    if (window.GPTMAKER_CONFIG) {
+                        window.GPTMAKER_CONFIG.token = token;
+                    }
+                    if (window.gptmakerConfig) {
+                        window.gptmakerConfig.setToken(token);
+                    }
+                    
+                    console.log('✅ Token de API cargado desde Airtable y sincronizado');
                     return;
                 }
             }
             
-            // Fallback to localStorage
+            // 2. Fallback: buscar en localStorage (gptmaker_token tiene prioridad)
+            const gptmakerToken = localStorage.getItem('gptmaker_token');
+            if (gptmakerToken) {
+                tokenInput.value = gptmakerToken;
+                console.log('✅ Token de API cargado desde localStorage (gptmaker_token)');
+                return;
+            }
+            
+            // 3. Fallback: buscar en localStorage con clave apiToken (compatibilidad)
             const apiToken = localStorage.getItem('apiToken');
             if (apiToken) {
                 tokenInput.value = apiToken;
-                console.log('✅ Token de API cargado desde localStorage');
+                // Migrar a gptmaker_token para consistencia
+                localStorage.setItem('gptmaker_token', apiToken);
+                console.log('✅ Token de API cargado desde localStorage (apiToken) y migrado');
             } else {
                 console.log('ℹ️ No se encontró token de API guardado');
             }
@@ -580,11 +610,16 @@ class ChatbotDashboard {
         } catch (error) {
             console.error('❌ Error al cargar token de API:', error);
             
-            // Fallback to localStorage
+            // Fallback to localStorage en caso de error
+            const gptmakerToken = localStorage.getItem('gptmaker_token');
             const apiToken = localStorage.getItem('apiToken');
-            if (apiToken && tokenInput) {
+            
+            if (gptmakerToken && tokenInput) {
+                tokenInput.value = gptmakerToken;
+                console.log('✅ Token de API cargado desde localStorage (gptmaker_token) - fallback');
+            } else if (apiToken && tokenInput) {
                 tokenInput.value = apiToken;
-                console.log('✅ Token de API cargado desde localStorage (fallback)');
+                console.log('✅ Token de API cargado desde localStorage (apiToken) - fallback');
             }
         }
     }
@@ -1042,9 +1077,34 @@ class ChatbotDashboard {
                 console.log('🔧 authService.useAirtable:', window.authService?.useAirtable);
             }
 
-            // Save to localStorage as backup
-            localStorage.setItem('apiToken', apiToken);
-            console.log('💾 Token guardado en localStorage como respaldo');
+            // Save to localStorage - usar gptmaker_token como clave principal
+            localStorage.setItem('gptmaker_token', apiToken);
+            localStorage.setItem('apiToken', apiToken); // Mantener compatibilidad
+            console.log('💾 Token guardado en localStorage (gptmaker_token y apiToken)');
+            
+            // Actualizar configuración global
+            if (window.GPTMAKER_CONFIG) {
+                window.GPTMAKER_CONFIG.token = apiToken;
+                console.log('✅ Configuración global actualizada');
+            }
+            
+            // Actualizar GPTMakerConfig si está disponible
+            if (window.gptmakerConfig) {
+                window.gptmakerConfig.setToken(apiToken);
+                console.log('✅ GPTMakerConfig actualizado');
+            }
+            
+            // Limpiar cache de la API para forzar recarga con nuevo token
+            if (this.api && typeof this.api.clearCacheByPrefix === 'function') {
+                this.api.clearCacheByPrefix('');
+                console.log('🗑️ Cache de API limpiado');
+            }
+            
+            // Si hay una instancia de GPTMakerAPI en el dashboard, actualizar su token
+            if (this.api && typeof this.api.setToken === 'function') {
+                this.api.setToken(apiToken);
+                console.log('✅ Token actualizado en instancia de API del dashboard');
+            }
             
             // Update global API service if available
             if (window.gptmakerService) {
@@ -1052,8 +1112,16 @@ class ChatbotDashboard {
                 console.log('🔧 Token actualizado en gptmakerService');
             }
             
-            this.showNotification('Configuración de API guardada exitosamente', 'success');
-            console.log('✅ Configuración de API guardada');
+            this.showNotification('Configuración de API guardada exitosamente. Los cambios se aplicarán en la próxima actualización de datos.', 'success');
+            console.log('✅ Configuración de API guardada completamente');
+            
+            // Sugerir recargar la página para aplicar cambios inmediatamente
+            setTimeout(() => {
+                const reload = confirm('¿Deseas recargar la página para aplicar los cambios inmediatamente?');
+                if (reload) {
+                    window.location.reload();
+                }
+            }, 1000);
             
         } catch (error) {
             console.error('❌ Error al guardar configuración de API:', error);
