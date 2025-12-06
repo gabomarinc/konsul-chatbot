@@ -531,10 +531,10 @@ class AirtableService {
             const url = `${this.apiBase}/${this.baseId}/Prospectos`;
             
             // Solo guardar campos obligatorios (que sí existen en Airtable)
-            // Airtable usa "nombre" y "chat_id" como nombres de campos (sin prefijo "A ")
+            // Airtable usa "A nombre" y "A chat_id" como nombres de campos (con espacio después de "A")
             const fields = {
-                'nombre': prospectData.nombre || '',
-                'chat_id': prospectData.chatId || '',
+                'A nombre': prospectData.nombre || '',
+                'A chat_id': prospectData.chatId || '',
                 'fecha_extraccion': prospectData.fechaExtraccion || new Date().toISOString()
             };
 
@@ -626,8 +626,8 @@ class AirtableService {
         try {
             console.log('🔍 Buscando prospecto por chat_id:', chatId);
             
-            // Intentar con ambos nombres de campo posibles (Airtable puede usar "chat_id" o "A chat_id")
-            const fieldNames = ['chat_id', 'A chat_id'];
+            // Intentar con ambos nombres de campo posibles (Airtable usa "A chat_id" con espacio)
+            const fieldNames = ['A chat_id', 'chat_id'];
             let response = null;
             let data = null;
             
@@ -706,10 +706,10 @@ class AirtableService {
             const url = `${this.apiBase}/${this.baseId}/Prospectos/${recordId}`;
             
             // Solo actualizar campos obligatorios (que sí existen en Airtable)
-            // Los campos se llaman: nombre, chat_id, fecha_extraccion (sin prefijo "A ")
+            // Los campos se llaman: A nombre, A chat_id, fecha_extraccion (con espacio después de "A")
             const fields = {};
-            if (prospectData.nombre !== undefined) fields['nombre'] = prospectData.nombre;
-            if (prospectData.chatId !== undefined) fields['chat_id'] = prospectData.chatId;
+            if (prospectData.nombre !== undefined) fields['A nombre'] = prospectData.nombre;
+            if (prospectData.chatId !== undefined) fields['A chat_id'] = prospectData.chatId;
             if (prospectData.fechaExtraccion !== undefined) fields['fecha_extraccion'] = prospectData.fechaExtraccion;
             
             // Por ahora, solo actualizamos los 3 campos obligatorios
