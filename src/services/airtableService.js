@@ -698,7 +698,11 @@ class AirtableService {
                     prospect: prospect
                 };
             } else {
-                console.log(`⚠️ No se encontró prospecto con chat_id: ${chatId} (buscado en campos: ${fieldNames.join(', ')})`);
+                // Log detallado para debug
+                console.log(`⚠️ No se encontró prospecto con chat_id: ${chatId}`);
+                console.log(`   - Buscado en campos: ${fieldNames.join(', ')}`);
+                console.log(`   - Response status: ${response?.status || 'N/A'}`);
+                console.log(`   - Data recibida:`, data);
                 return {
                     success: false,
                     prospect: null
