@@ -5689,7 +5689,7 @@ class ChatbotDashboard {
         if (prospects.length === 0) {
             prospectsList.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center">
+                    <td colspan="5" class="text-center">
                         <div class="no-prospects">
                             <i class="fas fa-user-friends"></i>
                             <h3>No hay prospectos</h3>
@@ -5711,7 +5711,6 @@ class ChatbotDashboard {
         const row = document.createElement('tr');
         
         const nombre = prospect.nombre || 'Sin nombre';
-        const canal = prospect.canal || 'N/A';
         const telefono = prospect.telefono || 'N/A';
         const fechaExtraccion = prospect.fechaExtraccion 
             ? new Date(prospect.fechaExtraccion).toLocaleDateString('es-ES')
@@ -5724,7 +5723,6 @@ class ChatbotDashboard {
             <td>
                 <strong>${nombre}</strong>
             </td>
-            <td>${canal}</td>
             <td>${telefono}</td>
             <td>${fechaExtraccion}</td>
             <td>
