@@ -4363,7 +4363,8 @@ body {
 .prospect-modal .prospect-info-section,
 .prospect-modal .prospect-images-section,
 .prospect-modal .prospect-documents-section,
-.prospect-modal .prospect-comments-section {
+.prospect-modal .prospect-comments-section,
+.prospect-modal .prospect-custom-fields-section {
     background: #ffffff !important;
     border: 1px solid #e5e7eb;
 }
