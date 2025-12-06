@@ -1,15 +1,6 @@
-/**
- * Script de Prueba: Estructura de Contactos y Campos Personalizados
- * 
- * Este script investiga:
- * 1. Cómo se estructuran los contactos en GPTMaker
- * 2. Cómo se relacionan los chats con los contactos
- * 3. Cómo obtener/actualizar valores de campos personalizados de contactos
- * 4. Qué datos ya están disponibles en GPTMaker (como el nombre)
- */
+COPIA Y PEGA ESTE CÓDIGO COMPLETO EN LA CONSOLA:
 
-// Función principal de prueba
-async function testContactCustomFields() {
+(async function testContactCustomFields() {
     console.log('🧪 ==========================================');
     console.log('🧪 PRUEBAS: CONTACTOS Y CAMPOS PERSONALIZADOS');
     console.log('🧪 ==========================================\n');
@@ -77,38 +68,39 @@ async function testContactCustomFields() {
                     console.log('\n\n📋 PASO 2: Intentando obtener información del contacto...\n');
                     console.log(`🔍 Usando recipient como contactId: ${chat.recipient}\n`);
                     
+                    // Obtener workspace ID primero
+                    const workspaces = await api.getWorkspaces();
+                    let workspaceId = null;
+                    if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
+                        workspaceId = workspaces.data[0].id;
+                        console.log(`📋 Workspace ID obtenido: ${workspaceId}\n`);
+                    }
+                    
                     // Intentar diferentes endpoints para obtener el contacto
-                    const contactEndpoints = [
+                    const contactEndpoints = workspaceId ? [
                         `/v2/contact/${chat.recipient}`,
-                        `/v2/workspace/*/contact/${chat.recipient}`,
+                        `/v2/workspace/${workspaceId}/contact/${chat.recipient}`,
                         `/v2/user/${chat.recipient}`,
-                        `/v2/workspace/*/user/${chat.recipient}`
+                        `/v2/workspace/${workspaceId}/user/${chat.recipient}`,
+                        `/v2/workspace/${workspaceId}/contacts/${chat.recipient}`
+                    ] : [
+                        `/v2/contact/${chat.recipient}`,
+                        `/v2/user/${chat.recipient}`
                     ];
                     
                     console.log('🔍 Probando endpoints de contacto...\n');
+                    let contactFound = false;
                     for (const endpoint of contactEndpoints) {
                         try {
-                            // Reemplazar * con workspace ID si es necesario
-                            let finalEndpoint = endpoint;
-                            if (endpoint.includes('*')) {
-                                const workspaces = await api.getWorkspaces();
-                                if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
-                                    const workspaceId = workspaces.data[0].id;
-                                    finalEndpoint = endpoint.replace('*', workspaceId);
-                                } else {
-                                    console.log(`⏭️ Saltando ${endpoint} (no se pudo obtener workspace)`);
-                                    continue;
-                                }
-                            }
-                            
-                            console.log(`  🔄 Probando: ${finalEndpoint}`);
-                            const result = await api.request(finalEndpoint);
+                            console.log(`  🔄 Probando: ${endpoint}`);
+                            const result = await api.request(endpoint);
                             
                             if (result.success && result.data) {
-                                console.log(`  ✅ ¡Éxito! Datos del contacto obtenidos desde: ${finalEndpoint}\n`);
+                                console.log(`  ✅ ¡Éxito! Datos del contacto obtenidos desde: ${endpoint}\n`);
                                 console.log('📊 ESTRUCTURA DEL CONTACTO:');
                                 console.log(JSON.stringify(result.data, null, 2));
                                 window.contactData = result.data;
+                                contactFound = true;
                                 
                                 // Intentar obtener campos personalizados del contacto
                                 console.log('\n\n📋 PASO 3: Intentando obtener campos personalizados del contacto...\n');
@@ -123,11 +115,15 @@ async function testContactCustomFields() {
                                 
                                 break; // Salir del loop si encontramos datos
                             } else {
-                                console.log(`  ❌ Sin datos en: ${finalEndpoint}`);
+                                console.log(`  ❌ Sin datos en: ${endpoint}`);
                             }
                         } catch (error) {
                             console.log(`  ⚠️ Error en ${endpoint}: ${error.message}`);
                         }
+                    }
+                    
+                    if (!contactFound) {
+                        console.log('\n⚠️ No se pudo obtener información del contacto con ningún endpoint');
                     }
                 } else {
                     console.log('\n⚠️ El chat no tiene "recipient", no se puede obtener contacto');
@@ -168,8 +164,8 @@ async function testContactCustomFields() {
                 'zonaDeInteres': 'Zona de interés del prospecto',
                 'perfilLaboral': 'Perfil laboral del prospecto',
                 'dui': 'DUI del prospecto',
-                'constanciaDeSalario': 'URL de constancia de salario',
-                'comprobanteDeAfp': 'URL de comprobante de AFP',
+                'constanciaDeSalario': 'URL de constancia de salario (o JSON con URLs de imágenes)',
+                'comprobanteDeAfp': 'URL de comprobante de AFP (o JSON con URLs de documentos)',
                 'declaracionDeRenta': 'URL de declaración de renta',
                 'comprobanteDeDomicilio': 'URL de comprobante de domicilio',
                 'declaracionesDeImpuestos(1–2Años)': 'URL de declaraciones de impuestos',
@@ -204,17 +200,5 @@ async function testContactCustomFields() {
     console.log('   - window.contactCustomFields: Campos personalizados del contacto');
     console.log('   - window.allContacts: Todos los contactos');
     console.log('   - window.availableCustomFields: Campos personalizados disponibles\n');
-}
-
-// Exponer función globalmente ANTES de ejecutarla
-window.testContactCustomFields = testContactCustomFields;
-
-// Ejecutar automáticamente cuando se carga el script
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('✅ Script de prueba de contactos cargado. Ejecuta: testContactCustomFields()');
-    });
-} else {
-    console.log('✅ Script de prueba de contactos cargado. Ejecuta: testContactCustomFields()');
-}
+})();
 
