@@ -1651,4 +1651,222 @@ class GPTMakerAPI {
             };
         }
     }
+
+    // Get contact custom field values
+    async getContactCustomFields(contactId, workspaceId = null) {
+        try {
+            if (!contactId) {
+                throw new Error('contactId es requerido');
+            }
+
+            // Obtener workspace ID si no se proporciona
+            let targetWorkspaceId = workspaceId;
+            if (!targetWorkspaceId) {
+                const workspaces = await this.getWorkspaces();
+                if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
+                    targetWorkspaceId = workspaces.data[0].id;
+                } else {
+                    const tokenInfo = this.parseToken();
+                    targetWorkspaceId = tokenInfo?.tenant || tokenInfo?.id;
+                }
+            }
+
+            if (!targetWorkspaceId) {
+                throw new Error('No se pudo obtener el workspace ID');
+            }
+
+            console.log(`📋 Obteniendo valores de campos personalizados para contacto: ${contactId}`);
+
+            // Intentar diferentes endpoints posibles
+            const endpoints = [
+                `/v2/contact/${contactId}/custom-fields`,
+                `/v2/workspace/${targetWorkspaceId}/contact/${contactId}/custom-fields`,
+                `/v2/custom-field/contact/${contactId}`,
+                `/v2/workspace/${targetWorkspaceId}/contact/${contactId}`
+            ];
+
+            for (const endpoint of endpoints) {
+                try {
+                    const result = await this.request(endpoint);
+                    if (result.success && result.data) {
+                        console.log(`✅ Valores de campos personalizados obtenidos desde: ${endpoint}`);
+                        return {
+                            success: true,
+                            data: result.data,
+                            contactId: contactId,
+                            source: 'api'
+                        };
+                    }
+                } catch (err) {
+                    console.log(`⚠️ Endpoint ${endpoint} no disponible:`, err.message);
+                    continue;
+                }
+            }
+
+            throw new Error('No se pudo obtener valores de campos personalizados del contacto');
+        } catch (error) {
+            console.error('❌ Error obteniendo valores de campos personalizados:', error);
+            return {
+                success: false,
+                error: error.message,
+                data: {},
+                contactId: contactId,
+                source: 'error'
+            };
+        }
+    }
+
+    // Update contact custom field values
+    async updateContactCustomFields(contactId, customFieldValues, workspaceId = null) {
+        try {
+            if (!contactId) {
+                throw new Error('contactId es requerido');
+            }
+
+            if (!customFieldValues || typeof customFieldValues !== 'object') {
+                throw new Error('customFieldValues debe ser un objeto');
+            }
+
+            // Obtener workspace ID si no se proporciona
+            let targetWorkspaceId = workspaceId;
+            if (!targetWorkspaceId) {
+                const workspaces = await this.getWorkspaces();
+                if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
+                    targetWorkspaceId = workspaces.data[0].id;
+                } else {
+                    const tokenInfo = this.parseToken();
+                    targetWorkspaceId = tokenInfo?.tenant || tokenInfo?.id;
+                }
+            }
+
+            if (!targetWorkspaceId) {
+                throw new Error('No se pudo obtener el workspace ID');
+            }
+
+            console.log(`📝 Actualizando valores de campos personalizados para contacto: ${contactId}`, customFieldValues);
+
+            // Intentar diferentes endpoints posibles
+            const endpoints = [
+                {
+                    url: `/v2/contact/${contactId}/custom-fields`,
+                    method: 'PUT'
+                },
+                {
+                    url: `/v2/workspace/${targetWorkspaceId}/contact/${contactId}/custom-fields`,
+                    method: 'PUT'
+                },
+                {
+                    url: `/v2/custom-field/contact/${contactId}`,
+                    method: 'PUT'
+                },
+                {
+                    url: `/v2/workspace/${targetWorkspaceId}/contact/${contactId}`,
+                    method: 'PATCH'
+                }
+            ];
+
+            for (const endpoint of endpoints) {
+                try {
+                    const result = await this.request(endpoint.url, {
+                        method: endpoint.method,
+                        body: JSON.stringify(customFieldValues),
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (result.success) {
+                        console.log(`✅ Valores de campos personalizados actualizados desde: ${endpoint.url}`);
+                        return {
+                            success: true,
+                            data: result.data,
+                            contactId: contactId,
+                            source: 'api'
+                        };
+                    }
+                } catch (err) {
+                    console.log(`⚠️ Endpoint ${endpoint.url} no disponible:`, err.message);
+                    continue;
+                }
+            }
+
+            throw new Error('No se pudo actualizar valores de campos personalizados del contacto');
+        } catch (error) {
+            console.error('❌ Error actualizando valores de campos personalizados:', error);
+            return {
+                success: false,
+                error: error.message,
+                contactId: contactId,
+                source: 'error'
+            };
+        }
+    }
+
+    // Get all contacts with custom fields
+    async getAllContacts(workspaceId = null, options = {}) {
+        try {
+            // Obtener workspace ID si no se proporciona
+            let targetWorkspaceId = workspaceId;
+            if (!targetWorkspaceId) {
+                const workspaces = await this.getWorkspaces();
+                if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
+                    targetWorkspaceId = workspaces.data[0].id;
+                } else {
+                    const tokenInfo = this.parseToken();
+                    targetWorkspaceId = tokenInfo?.tenant || tokenInfo?.id;
+                }
+            }
+
+            if (!targetWorkspaceId) {
+                throw new Error('No se pudo obtener el workspace ID');
+            }
+
+            console.log(`👥 Obteniendo todos los contactos del workspace: ${targetWorkspaceId}`);
+
+            // Construir query string
+            const queryParams = [];
+            if (options.page) queryParams.push(`page=${options.page}`);
+            if (options.pageSize) queryParams.push(`pageSize=${options.pageSize}`);
+            if (options.query) queryParams.push(`query=${encodeURIComponent(options.query)}`);
+
+            const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+            // Intentar diferentes endpoints posibles
+            const endpoints = [
+                `/v2/workspace/${targetWorkspaceId}/contacts${queryString}`,
+                `/v2/contacts${queryString}`,
+                `/v2/workspace/${targetWorkspaceId}/users${queryString}`,
+                `/v2/users${queryString}`
+            ];
+
+            for (const endpoint of endpoints) {
+                try {
+                    const result = await this.request(endpoint);
+                    if (result.success && result.data) {
+                        const contacts = Array.isArray(result.data) ? result.data : (result.data.data || result.data.contacts || []);
+                        console.log(`✅ ${contacts.length} contactos obtenidos desde: ${endpoint}`);
+                        return {
+                            success: true,
+                            data: contacts,
+                            total: contacts.length,
+                            source: 'api'
+                        };
+                    }
+                } catch (err) {
+                    console.log(`⚠️ Endpoint ${endpoint} no disponible:`, err.message);
+                    continue;
+                }
+            }
+
+            throw new Error('No se pudieron obtener contactos');
+        } catch (error) {
+            console.error('❌ Error obteniendo contactos:', error);
+            return {
+                success: false,
+                error: error.message,
+                data: [],
+                source: 'error'
+            };
+        }
+    }
 }
