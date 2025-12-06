@@ -5780,24 +5780,58 @@ class ChatbotDashboard {
             const result = await window.prospectsService.extractProspectsFromAllChats(chats, this.dataService);
             
             if (result.success) {
+                console.log(`📊 ${result.prospects.length} prospectos encontrados, ${result.errors.length} errores en el análisis`);
+                
                 // Guardar cada prospecto en Airtable
                 let savedCount = 0;
                 let errorCount = 0;
+                const saveErrors = [];
 
                 for (const prospectData of result.prospects) {
+                    console.log(`💾 Guardando prospecto: ${prospectData.nombre} (chat: ${prospectData.chatId})`);
                     const saveResult = await window.prospectsService.saveProspect(prospectData);
                     if (saveResult.success) {
                         savedCount++;
+                        console.log(`✅ Prospecto guardado: ${prospectData.nombre}`);
                     } else {
                         errorCount++;
-                        console.error('Error guardando prospecto:', saveResult.error);
+                        const errorMsg = `Chat ${prospectData.chatId}: ${saveResult.error}`;
+                        console.error('❌ Error guardando prospecto:', errorMsg);
+                        saveErrors.push(errorMsg);
                     }
                 }
 
-                this.showNotification(
-                    `✅ ${savedCount} prospectos extraídos y guardados${errorCount > 0 ? ` (${errorCount} errores)` : ''}`,
-                    savedCount > 0 ? 'success' : 'error'
-                );
+                // Mostrar errores de análisis si los hay
+                if (result.errors.length > 0) {
+                    console.warn('⚠️ Errores durante el análisis:', result.errors);
+                    result.errors.forEach(err => {
+                        console.error(`  - Chat ${err.chatId}: ${err.error}`);
+                    });
+                }
+
+                // Mostrar errores de guardado si los hay
+                if (saveErrors.length > 0) {
+                    console.warn('⚠️ Errores al guardar:', saveErrors);
+                }
+
+                // Mensaje final
+                let message = '';
+                if (savedCount > 0) {
+                    message = `✅ ${savedCount} prospecto${savedCount > 1 ? 's' : ''} extraído${savedCount > 1 ? 's' : ''} y guardado${savedCount > 1 ? 's' : ''}`;
+                    if (errorCount > 0 || result.errors.length > 0) {
+                        const totalErrors = errorCount + result.errors.length;
+                        message += ` (${totalErrors} error${totalErrors > 1 ? 'es' : ''})`;
+                    }
+                    this.showNotification(message, 'success');
+                } else {
+                    message = `⚠️ No se pudieron extraer prospectos`;
+                    if (errorCount > 0 || result.errors.length > 0) {
+                        const totalErrors = errorCount + result.errors.length;
+                        message += ` (${totalErrors} error${totalErrors > 1 ? 'es' : ''})`;
+                        console.log('💡 Abre la consola del navegador para ver los detalles de los errores');
+                    }
+                    this.showNotification(message, 'warning');
+                }
 
                 // Recargar la lista
                 await this.loadProspects();

@@ -18,7 +18,7 @@ class ProspectsService {
 
         console.log('🔍 Buscando nombre en mensajes...');
         
-        // Patrones para detectar preguntas sobre el nombre
+        // Patrones para detectar preguntas sobre el nombre (más flexibles)
         const nameQuestionPatterns = [
             /nombre\s+completo/i,
             /me\s+podr[ií]a\s+dar\s+su\s+nombre/i,
@@ -27,7 +27,10 @@ class ProspectsService {
             /dame\s+tu\s+nombre/i,
             /dame\s+su\s+nombre/i,
             /c[oó]mo\s+te\s+llamas/i,
-            /c[oó]mo\s+se\s+llama/i
+            /c[oó]mo\s+se\s+llama/i,
+            /nombre/i, // Cualquier mención de "nombre"
+            /llamo/i,  // Cualquier mención de "llamo"
+            /dar\s+nombre/i
         ];
 
         // Patrones para extraer el nombre de la respuesta
@@ -147,16 +150,22 @@ class ProspectsService {
             console.log(`📊 Analizando chat ${chat.id} para extraer prospecto...`);
 
             if (!messages || messages.length === 0) {
-                console.log('⚠️ No hay mensajes para analizar');
-                return null;
+                console.log('⚠️ No hay mensajes para analizar en el chat', chat.id);
+                // Intentar crear prospecto con datos del chat aunque no haya mensajes
+                return this.createProspectFromChatData(chat, []);
             }
 
             // Extraer nombre
             const nombre = this.extractNameFromMessages(messages);
             
+            // Si no se puede extraer nombre, usar datos del chat como fallback
             if (!nombre) {
-                console.log('⚠️ No se pudo extraer nombre, saltando chat');
-                return null;
+                console.log('⚠️ No se pudo extraer nombre de mensajes, usando datos del chat como fallback');
+                const fallbackName = chat.name || chat.userName || chat.whatsappPhone || 'Sin nombre';
+                console.log(`📝 Usando nombre del chat: ${fallbackName}`);
+                
+                // Continuar con el análisis aunque no haya nombre extraído
+                return this.createProspectFromChatData(chat, messages, fallbackName);
             }
 
             // Extraer imágenes
@@ -194,6 +203,51 @@ class ProspectsService {
 
         } catch (error) {
             console.error('❌ Error analizando chat:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Crea datos de prospecto usando información del chat (fallback cuando no hay mensajes o nombre)
+     */
+    createProspectFromChatData(chat, messages = [], nombreFallback = null) {
+        try {
+            const nombre = nombreFallback || chat.name || chat.userName || chat.whatsappPhone || 'Sin nombre';
+            
+            // Extraer imágenes y documentos si hay mensajes
+            let imagenesUrls = [];
+            let documentosUrls = [];
+            
+            if (messages && messages.length > 0) {
+                const imagenes = this.extractImagesFromMessages(messages);
+                imagenesUrls = imagenes.map(img => img.url);
+                
+                const documentos = this.extractDocumentsFromMessages(messages);
+                documentosUrls = documentos.map(doc => ({
+                    url: doc.url,
+                    fileName: doc.fileName,
+                    type: doc.type
+                }));
+            }
+            
+            const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : null;
+            const fechaUltimoMensaje = lastMessage?.time || lastMessage?.timestamp || chat.time || chat.createdAt || new Date().toISOString();
+
+            return {
+                nombre: nombre,
+                chatId: chat.id,
+                telefono: chat.whatsappPhone || '',
+                canal: chat.type || 'whatsapp',
+                fechaExtraccion: new Date().toISOString(),
+                fechaUltimoMensaje: fechaUltimoMensaje,
+                estado: 'Nuevo',
+                imagenesUrls: imagenesUrls,
+                documentosUrls: documentosUrls,
+                agenteId: chat.agentId || '',
+                notas: messages && messages.length === 0 ? 'Sin mensajes disponibles' : ''
+            };
+        } catch (error) {
+            console.error('❌ Error creando prospecto desde datos del chat:', error);
             return null;
         }
     }
@@ -275,15 +329,29 @@ class ProspectsService {
 
             for (const chat of chats) {
                 try {
+                    console.log(`📋 Procesando chat: ${chat.id} - ${chat.name || chat.userName || 'Sin nombre'}`);
+                    
                     // Obtener mensajes del chat
                     const messagesResult = await dataService.getAllChatMessages(chat.id);
                     
                     if (messagesResult.success && messagesResult.data) {
+                        console.log(`  ✅ ${messagesResult.data.length} mensajes obtenidos`);
                         // Analizar chat
                         const prospectData = await this.analyzeChat(chat, messagesResult.data);
                         
                         if (prospectData) {
+                            console.log(`  ✅ Prospecto extraído: ${prospectData.nombre}`);
                             prospects.push(prospectData);
+                        } else {
+                            console.log(`  ⚠️ No se pudo crear prospecto para este chat`);
+                        }
+                    } else {
+                        console.log(`  ⚠️ No se pudieron obtener mensajes: ${messagesResult.error || 'Sin datos'}`);
+                        // Intentar crear prospecto con datos del chat aunque no haya mensajes
+                        const prospectFromChat = this.createProspectFromChatData(chat, []);
+                        if (prospectFromChat) {
+                            console.log(`  ✅ Prospecto creado desde datos del chat: ${prospectFromChat.nombre}`);
+                            prospects.push(prospectFromChat);
                         }
                     }
                 } catch (error) {
