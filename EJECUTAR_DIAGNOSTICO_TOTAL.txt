@@ -1,0 +1,6 @@
+COPIA Y PEGA ESTE CÓDIGO EN LA CONSOLA:
+
+// ... (código completo del archivo DIAGNOSTICO_TOTAL.js) ...
+
+Este script buscará campos personalizados en TODAS las estructuras posibles del chat y contactos.
+
