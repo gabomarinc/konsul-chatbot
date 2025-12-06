@@ -1,0 +1,76 @@
+COPIA Y PEGA ESTE CÓDIGO EN LA CONSOLA (F12) PARA DIAGNOSTICAR:
+
+// Diagnóstico completo de página en blanco
+console.log('🔍 ==========================================');
+console.log('🔍 DIAGNÓSTICO: Página en Blanco');
+console.log('🔍 ==========================================\n');
+
+// 1. Verificar DOM
+console.log('1️⃣ VERIFICANDO DOM:');
+console.log('   - Estado del DOM:', document.readyState);
+console.log('   - Body existe:', !!document.body);
+console.log('   - Dashboard container existe:', !!document.querySelector('.dashboard-container'));
+console.log('   - HTML presente:', document.body.innerHTML.length > 0 ? 'Sí' : 'No');
+
+// 2. Verificar scripts cargados
+console.log('\n2️⃣ VERIFICANDO SCRIPTS:');
+const scripts = Array.from(document.scripts);
+console.log(`   - Total scripts: ${scripts.length}`);
+scripts.forEach((script, i) => {
+    const status = script.src ? '✅' : '⚠️';
+    console.log(`   ${status} ${i + 1}. ${script.src || 'Inline script'}`);
+});
+
+// 3. Verificar clases JavaScript
+console.log('\n3️⃣ VERIFICANDO CLASES JAVASCRIPT:');
+console.log('   - GPTMakerAPI:', typeof GPTMakerAPI);
+console.log('   - DataService:', typeof DataService);
+console.log('   - ChatbotDashboard:', typeof ChatbotDashboard);
+console.log('   - AuthService:', typeof window.authService);
+
+// 4. Verificar errores de carga
+console.log('\n4️⃣ VERIFICANDO ERRORES DE CARGA:');
+const resources = performance.getEntriesByType('resource');
+const failed = resources.filter(r => r.responseStatus >= 400);
+if (failed.length > 0) {
+    console.log('   ❌ Archivos con error:');
+    failed.forEach(r => {
+        console.log(`      - ${r.name} (${r.responseStatus})`);
+    });
+} else {
+    console.log('   ✅ No hay errores de carga detectados');
+}
+
+// 5. Verificar autenticación
+console.log('\n5️⃣ VERIFICANDO AUTENTICACIÓN:');
+if (window.authService) {
+    try {
+        window.authService.loadAuthData();
+        const isAuth = window.authService.isAuthenticated();
+        console.log('   - AuthService disponible:', 'Sí');
+        console.log('   - Usuario autenticado:', isAuth ? 'Sí' : 'No');
+    } catch (e) {
+        console.log('   - Error verificando auth:', e.message);
+    }
+} else {
+    console.log('   - AuthService disponible:', 'No');
+}
+
+// 6. Verificar dashboard inicializado
+console.log('\n6️⃣ VERIFICANDO DASHBOARD:');
+console.log('   - Dashboard inicializado:', window.dashboardInitialized ? 'Sí' : 'No');
+console.log('   - window.dashboard existe:', typeof window.dashboard);
+if (window.dashboard) {
+    console.log('   - Dashboard data:', Object.keys(window.dashboard.dashboardData || {}));
+}
+
+// 7. Verificar errores en consola
+console.log('\n7️⃣ VERIFICANDO ERRORES:');
+console.log('   - Revisa los errores rojos arriba en la consola');
+console.log('   - Busca mensajes que empiecen con "❌"');
+
+console.log('\n✅ ==========================================');
+console.log('✅ DIAGNÓSTICO COMPLETADO');
+console.log('✅ ==========================================\n');
+console.log('💡 Por favor comparte estos logs para ayudarte mejor');
+
