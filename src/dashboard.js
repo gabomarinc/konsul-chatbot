@@ -2399,7 +2399,7 @@ class ChatbotDashboard {
             console.log(`📋 Cargando campos personalizados para chat: ${chatId}`);
 
             // Buscar el chat para obtener el recipient (contactId)
-            const chat = this.dashboardData.chats?.find(c => c.id === chatId);
+            let chat = this.dashboardData.chats?.find(c => c.id === chatId);
             if (!chat) {
                 // Intentar cargar el chat si no está disponible
                 console.log('⚠️ Chat no encontrado en datos, intentando cargar...');
