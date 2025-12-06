@@ -6407,58 +6407,101 @@ class ChatbotDashboard {
                     addCommentBtn.disabled = true;
                     addCommentBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Agregando...';
 
-                    // Obtener comentarios existentes
-                    const currentProspect = this.dashboardData.prospects?.find(p => p.id === prospectId);
+                    // PRIMERO: Recargar el prospecto desde Airtable para obtener los comentarios más recientes
+                    console.log('🔄 Recargando prospecto desde Airtable para obtener comentarios actualizados...');
+                    const prospectResult = await window.airtableService.getProspectById(prospectId);
+                    
                     let commentsArray = [];
                     
-                    if (currentProspect && currentProspect.comentarios) {
-                        try {
-                            if (typeof currentProspect.comentarios === 'string') {
-                                if (currentProspect.comentarios.trim().startsWith('[') || currentProspect.comentarios.trim().startsWith('{')) {
+                    if (prospectResult.success && prospectResult.prospect) {
+                        const currentComentarios = prospectResult.prospect.comentarios;
+                        console.log('📝 Comentarios actuales desde Airtable:', currentComentarios);
+                        
+                        // Parsear comentarios existentes
+                        if (currentComentarios) {
+                            try {
+                                if (typeof currentComentarios === 'string') {
+                                    if (currentComentarios.trim().startsWith('[')) {
+                                        // Es un JSON array
+                                        commentsArray = JSON.parse(currentComentarios);
+                                        console.log('✅ Comentarios parseados como JSON array:', commentsArray.length, 'comentarios');
+                                    } else if (currentComentarios.trim().startsWith('{')) {
+                                        // Es un objeto, convertirlo a array
+                                        commentsArray = [JSON.parse(currentComentarios)];
+                                        console.log('✅ Comentario parseado como objeto único, convertido a array');
+                                    } else {
+                                        // String simple (comentario antiguo), convertirlo a array
+                                        commentsArray = [{
+                                            texto: currentComentarios,
+                                            fecha: new Date().toISOString(),
+                                            autor: 'Usuario'
+                                        }];
+                                        console.log('✅ Comentario antiguo (string simple) convertido a array');
+                                    }
+                                } else if (Array.isArray(currentComentarios)) {
+                                    commentsArray = currentComentarios;
+                                    console.log('✅ Comentarios ya son un array:', commentsArray.length, 'comentarios');
+                                }
+                            } catch (e) {
+                                console.warn('⚠️ Error parseando comentarios existentes, iniciando array vacío:', e);
+                                commentsArray = [];
+                            }
+                        }
+                    } else {
+                        console.warn('⚠️ No se pudo recargar el prospecto, intentando usar datos en memoria');
+                        // Fallback: intentar usar datos en memoria
+                        const currentProspect = this.dashboardData.prospects?.find(p => p.id === prospectId);
+                        if (currentProspect && currentProspect.comentarios) {
+                            try {
+                                if (typeof currentProspect.comentarios === 'string' && currentProspect.comentarios.trim().startsWith('[')) {
                                     commentsArray = JSON.parse(currentProspect.comentarios);
-                                } else {
-                                    // Comentario antiguo como string simple, convertirlo a array
+                                } else if (typeof currentProspect.comentarios === 'string') {
                                     commentsArray = [{
                                         texto: currentProspect.comentarios,
                                         fecha: new Date().toISOString(),
                                         autor: 'Usuario'
                                     }];
                                 }
-                            } else if (Array.isArray(currentProspect.comentarios)) {
-                                commentsArray = currentProspect.comentarios;
+                            } catch (e) {
+                                console.warn('⚠️ Error parseando comentarios de memoria:', e);
+                                commentsArray = [];
                             }
-                        } catch (e) {
-                            console.warn('⚠️ Error parseando comentarios existentes:', e);
-                            commentsArray = [];
                         }
                     }
                     
-                    // Asegurar que sea un array
+                    // Asegurar que sea un array válido
                     if (!Array.isArray(commentsArray)) {
+                        console.warn('⚠️ commentsArray no es un array válido, inicializando como array vacío');
                         commentsArray = [];
                     }
+                    
+                    console.log(`📊 Comentarios existentes antes de agregar nuevo: ${commentsArray.length} comentarios`);
                     
                     // Agregar nuevo comentario al inicio del array
                     const newComment = {
                         texto: newCommentText,
                         fecha: new Date().toISOString(),
-                        autor: 'Usuario' // Puedes obtener el usuario actual si tienes autenticación
+                        autor: 'Usuario'
                     };
                     
                     commentsArray.unshift(newComment); // Agregar al inicio (más reciente primero)
+                    console.log(`✅ Nuevo comentario agregado. Total de comentarios: ${commentsArray.length}`);
                     
                     // Guardar el array completo como JSON string
+                    const jsonComments = JSON.stringify(commentsArray);
+                    console.log('💾 Guardando comentarios en Airtable:', jsonComments.substring(0, 100) + '...');
+                    
                     const result = await window.airtableService.updateProspect(prospectId, {
-                        comentarios: JSON.stringify(commentsArray)
+                        comentarios: jsonComments
                     });
 
                     if (result.success) {
-                        this.showNotification('Comentario agregado correctamente', 'success');
+                        this.showNotification('Comentario agregado correctamente al historial', 'success');
                         
                         // Actualizar el prospecto en los datos locales
                         const prospectIndex = this.dashboardData.prospects?.findIndex(p => p.id === prospectId);
                         if (prospectIndex !== undefined && prospectIndex !== -1 && this.dashboardData.prospects) {
-                            this.dashboardData.prospects[prospectIndex].comentarios = JSON.stringify(commentsArray);
+                            this.dashboardData.prospects[prospectIndex].comentarios = jsonComments;
                         }
                         
                         // Limpiar el textarea
@@ -6466,17 +6509,17 @@ class ChatbotDashboard {
                             textarea.value = '';
                         }
                         
-                        // Actualizar el historial en el modal
+                        // Actualizar el historial en el modal con el array completo
                         const commentsHistory = document.getElementById('commentsHistory');
                         if (commentsHistory) {
-                            commentsHistory.innerHTML = this.renderCommentsHistory(JSON.stringify(commentsArray));
+                            commentsHistory.innerHTML = this.renderCommentsHistory(jsonComments);
                         }
                     } else {
                         this.showNotification('Error al guardar comentario: ' + (result.error || 'Desconocido'), 'error');
                     }
                 } catch (error) {
-                    console.error('Error guardando comentario:', error);
-                    this.showNotification('Error al guardar comentario', 'error');
+                    console.error('❌ Error guardando comentario:', error);
+                    this.showNotification('Error al guardar comentario: ' + error.message, 'error');
                 } finally {
                     addCommentBtn.disabled = false;
                     addCommentBtn.innerHTML = '<i class="fas fa-plus"></i> Agregar Comentario';
