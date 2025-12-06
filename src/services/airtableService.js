@@ -731,15 +731,29 @@ class AirtableService {
             
             const url = `${this.apiBase}/${this.baseId}/Prospectos/${recordId}`;
             
-            // Solo actualizar campos obligatorios (que sí existen en Airtable)
-            // Los campos se llaman: nombre, chat_id, fecha_extraccion (sin prefijo "A ")
+            // Actualizar campos
             const fields = {};
             if (prospectData.nombre !== undefined) fields['nombre'] = prospectData.nombre;
             if (prospectData.chatId !== undefined) fields['chat_id'] = prospectData.chatId;
             if (prospectData.fechaExtraccion !== undefined) fields['fecha_extraccion'] = prospectData.fechaExtraccion;
             
-            // Por ahora, solo actualizamos los 3 campos obligatorios
-            // Los demás campos se pueden agregar después cuando se creen en Airtable
+            // Actualizar imágenes como JSON string si existen
+            if (prospectData.imagenesUrls !== undefined) {
+                if (Array.isArray(prospectData.imagenesUrls) && prospectData.imagenesUrls.length > 0) {
+                    fields['imagenes_urls'] = JSON.stringify(prospectData.imagenesUrls);
+                } else {
+                    fields['imagenes_urls'] = null; // Limpiar si está vacío
+                }
+            }
+            
+            // Actualizar documentos como JSON string si existen
+            if (prospectData.documentosUrls !== undefined) {
+                if (Array.isArray(prospectData.documentosUrls) && prospectData.documentosUrls.length > 0) {
+                    fields['documentos_urls'] = JSON.stringify(prospectData.documentosUrls);
+                } else {
+                    fields['documentos_urls'] = null; // Limpiar si está vacío
+                }
+            }
 
             const payload = { fields };
 
