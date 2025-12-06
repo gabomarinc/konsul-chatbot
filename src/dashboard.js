@@ -6176,6 +6176,21 @@ class ChatbotDashboard {
                         <p>Este prospecto no ha enviado imágenes ni documentos aún.</p>
                     </div>
                     ` : ''}
+
+                    <div class="prospect-comments-section">
+                        <h3><i class="fas fa-comment-dots"></i> Comentarios</h3>
+                        <textarea 
+                            id="prospectCommentsTextarea" 
+                            class="comments-textarea" 
+                            placeholder="Escribe tus comentarios sobre este prospecto..."
+                            rows="4">${prospect.comentarios || ''}</textarea>
+                        <div class="comments-actions">
+                            <button class="btn btn-primary btn-sm" id="saveCommentsBtn" data-prospect-id="${prospect.id}">
+                                <i class="fas fa-save"></i>
+                                Guardar Comentarios
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="modal-actions">
@@ -6239,6 +6254,47 @@ class ChatbotDashboard {
                 this.showImageLightbox(imageUrl, imagenes);
             });
         });
+
+        // Guardar comentarios
+        const saveCommentsBtn = document.getElementById('saveCommentsBtn');
+        if (saveCommentsBtn) {
+            saveCommentsBtn.addEventListener('click', async () => {
+                const textarea = document.getElementById('prospectCommentsTextarea');
+                const comments = textarea ? textarea.value.trim() : '';
+                const prospectId = saveCommentsBtn.dataset.prospectId;
+
+                if (!prospectId) {
+                    this.showNotification('Error: No se pudo identificar el prospecto', 'error');
+                    return;
+                }
+
+                try {
+                    saveCommentsBtn.disabled = true;
+                    saveCommentsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+                    const result = await window.airtableService.updateProspect(prospectId, {
+                        comentarios: comments
+                    });
+
+                    if (result.success) {
+                        this.showNotification('Comentarios guardados correctamente', 'success');
+                        // Actualizar el prospecto en los datos locales
+                        const prospectIndex = this.dashboardData.prospects?.findIndex(p => p.id === prospectId);
+                        if (prospectIndex !== undefined && prospectIndex !== -1 && this.dashboardData.prospects) {
+                            this.dashboardData.prospects[prospectIndex].comentarios = comments;
+                        }
+                    } else {
+                        this.showNotification('Error al guardar comentarios: ' + (result.error || 'Desconocido'), 'error');
+                    }
+                } catch (error) {
+                    console.error('Error guardando comentarios:', error);
+                    this.showNotification('Error al guardar comentarios', 'error');
+                } finally {
+                    saveCommentsBtn.disabled = false;
+                    saveCommentsBtn.innerHTML = '<i class="fas fa-save"></i> Guardar Comentarios';
+                }
+            });
+        }
 
         // Click fuera del modal para cerrar
         modal.addEventListener('click', (e) => {

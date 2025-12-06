@@ -4362,7 +4362,8 @@ body {
 /* Asegurar que todas las secciones tengan fondo sólido y limpio */
 .prospect-modal .prospect-info-section,
 .prospect-modal .prospect-images-section,
-.prospect-modal .prospect-documents-section {
+.prospect-modal .prospect-documents-section,
+.prospect-modal .prospect-comments-section {
     background: #ffffff !important;
     border: 1px solid #e5e7eb;
 }
@@ -4504,7 +4505,8 @@ body {
 
 .prospect-info-section,
 .prospect-images-section,
-.prospect-documents-section {
+.prospect-documents-section,
+.prospect-comments-section {
     margin-bottom: 2rem;
     padding: 1.5rem;
     background: #ffffff !important;
@@ -4514,7 +4516,8 @@ body {
 
 .prospect-info-section h3,
 .prospect-images-section h3,
-.prospect-documents-section h3 {
+.prospect-documents-section h3,
+.prospect-comments-section h3 {
     margin-bottom: 1.5rem;
     color: var(--text-primary);
     display: flex;
@@ -4524,6 +4527,44 @@ body {
     font-weight: 600;
     padding-bottom: 0.75rem;
     border-bottom: 2px solid var(--border-color);
+}
+
+/* Estilos para el campo de comentarios */
+.comments-textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    background: #ffffff !important;
+    color: var(--text-primary);
+}
+
+.comments-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(39, 190, 165, 0.1);
+}
+
+.comments-textarea::placeholder {
+    color: #9ca3af;
+}
+
+.comments-actions {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.comments-actions .btn-sm {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
 }
 
 .info-grid {

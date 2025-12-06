@@ -754,6 +754,11 @@ class AirtableService {
                     fields['documentos_urls'] = null; // Limpiar si está vacío
                 }
             }
+            
+            // Actualizar comentarios si existen
+            if (prospectData.comentarios !== undefined) {
+                fields['comentarios'] = prospectData.comentarios || '';
+            }
 
             const payload = { fields };
 
@@ -825,6 +830,7 @@ class AirtableService {
             documentosUrls: documentosUrls,
             agenteId: fields.agente_id || '',
             notas: fields.notas || '',
+            comentarios: fields.comentarios || '',
             createdTime: record.createdTime
         };
     }
