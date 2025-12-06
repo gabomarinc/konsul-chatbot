@@ -25,6 +25,13 @@ function checkAuthentication() {
         return false;
     }
     
+    // Asegurar que los datos de autenticación estén cargados antes de verificar
+    try {
+        window.authService.loadAuthData();
+    } catch (error) {
+        console.error('❌ Error cargando datos de autenticación:', error);
+    }
+    
     // Verificar autenticación
     const isAuthenticated = window.authService.isAuthenticated();
     console.log('🔐 Estado de autenticación:', isAuthenticated ? 'Autenticado' : 'No autenticado');

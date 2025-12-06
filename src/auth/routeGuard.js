@@ -11,17 +11,35 @@
 
     async function guard() {
         const ready = await waitForAuthService(2500);
-        if (!ready) return;
+        if (!ready) {
+            console.warn('⚠️ AuthService no disponible después de esperar');
+            return;
+        }
 
-        // Asegurar que los datos estén cargados
-        try { window.authService.loadAuthData(); } catch (_) {}
+        // Asegurar que los datos estén cargados ANTES de verificar
+        try {
+            window.authService.loadAuthData();
+            // Dar un pequeño delay para asegurar que los datos se cargaron
+            await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+            console.error('❌ Error cargando datos de autenticación en routeGuard:', error);
+        }
 
         const isAuth = window.authService.isAuthenticated();
         const isLogin = window.location.pathname.includes('login.html');
 
+        console.log('🛡️ RouteGuard - Estado de autenticación:', {
+            isAuth,
+            isLogin,
+            hasUser: !!window.authService.currentUser,
+            hasToken: !!window.authService.token
+        });
+
         if (isAuth && isLogin) {
+            console.log('✅ Usuario autenticado en login, redirigiendo a dashboard');
             window.location.replace('index.html');
         } else if (!isAuth && !isLogin) {
+            console.log('❌ Usuario no autenticado, redirigiendo a login');
             window.location.replace('login.html');
         }
     }

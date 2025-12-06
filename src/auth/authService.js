@@ -438,27 +438,29 @@ class AuthService {
 
     // ===== MÉTODOS DE GESTIÓN DE DATOS =====
 
-    saveAuthData(rememberMe = false) {
+    saveAuthData(rememberMe = true) {
         const authData = {
             user: this.currentUser,
             token: this.token,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            rememberMe: rememberMe // Guardar el estado de rememberMe para saber la duración
         };
 
         console.log('💾 Guardando datos de autenticación:', {
             hasUser: !!authData.user,
             userId: authData.user?.id,
             userEmail: authData.user?.email,
-            rememberMe: rememberMe
+            rememberMe: rememberMe,
+            storage: 'localStorage (persistente)',
+            duration: rememberMe ? '30 días' : '7 días'
         });
 
-        if (rememberMe) {
-            // Guardar por 30 días
-            localStorage.setItem('authData', JSON.stringify(authData));
-        } else {
-            // Guardar solo para la sesión actual
-            sessionStorage.setItem('authData', JSON.stringify(authData));
-        }
+        // Siempre usar localStorage para persistencia entre recargas
+        // Si rememberMe es true, la sesión durará 30 días, si es false durará 7 días
+        localStorage.setItem('authData', JSON.stringify(authData));
+        
+        // También guardar en sessionStorage como respaldo
+        sessionStorage.setItem('authData', JSON.stringify(authData));
     }
 
     loadAuthData() {
@@ -482,13 +484,19 @@ class AuthService {
                     userId: this.currentUser?.id
                 });
 
-                // Verificar si el token no ha expirado (24 horas)
+                // Verificar si el token no ha expirado
                 const tokenAge = Date.now() - parsed.timestamp;
-                const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+                // Si rememberMe es true, usar 30 días, si es false usar 7 días
+                const rememberMe = parsed.rememberMe !== false; // Por defecto true si no está definido
+                const maxAge = rememberMe ? (30 * 24 * 60 * 60 * 1000) : (7 * 24 * 60 * 60 * 1000); // 30 días o 7 días
 
                 if (tokenAge > maxAge) {
                     console.log('⚠️ Token expirado, limpiando datos');
                     this.clearAuthData();
+                } else {
+                    const daysOld = Math.floor(tokenAge / (24 * 60 * 60 * 1000));
+                    const maxDays = Math.floor(maxAge / (24 * 60 * 60 * 1000));
+                    console.log(`✅ Token válido (edad: ${daysOld} días, máximo: ${maxDays} días, tipo: ${rememberMe ? 'persistente' : 'temporal'})`);
                 }
             } catch (error) {
                 console.error('❌ Error cargando datos de auth:', error);
