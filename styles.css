@@ -467,6 +467,26 @@ body {
     padding: 0.575rem 1.15rem !important; /* 15% más grande que 0.5rem 1rem */
     font-size: 1.00625rem !important; /* 15% más grande que 0.875rem */
     min-height: calc(1.15 * 2.25rem); /* Asegurar altura 15% mayor */
+    color: white !important; /* Texto en blanco */
+    animation: syncPulse 2s ease-in-out infinite; /* Animación de sombreado pulsante */
+}
+
+/* Asegurar que el icono también sea blanco */
+.sync-btn-large i {
+    color: white !important;
+}
+
+/* Animación de sombreado pulsante para el botón de sincronizar */
+@keyframes syncPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(39, 190, 165, 0.7), 0 4px 12px rgba(39, 190, 165, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(39, 190, 165, 0.3), 0 6px 20px rgba(39, 190, 165, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(39, 190, 165, 0.7), 0 4px 12px rgba(39, 190, 165, 0.3);
+    }
 }
 
 /* Ajustes responsive para el texto de recordatorio */
