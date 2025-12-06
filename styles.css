@@ -454,6 +454,41 @@ body {
     gap: 1rem;
 }
 
+/* Texto de recordatorio para sincronizar */
+.sync-reminder-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    white-space: nowrap;
+}
+
+/* Botón de sincronizar más grande (15% más grande) */
+.sync-btn-large {
+    padding: 0.575rem 1.15rem !important; /* 15% más grande que 0.5rem 1rem */
+    font-size: 1.00625rem !important; /* 15% más grande que 0.875rem */
+    min-height: calc(1.15 * 2.25rem); /* Asegurar altura 15% mayor */
+}
+
+/* Ajustes responsive para el texto de recordatorio */
+@media (max-width: 768px) {
+    .sync-reminder-text {
+        display: none; /* Ocultar en móviles para ahorrar espacio */
+    }
+    
+    .sync-btn-large {
+        padding: 0.6rem 1.2rem !important;
+        font-size: 0.95rem !important;
+    }
+}
+
+@media (max-width: 1024px) {
+    .sync-reminder-text {
+        font-size: 0.8rem;
+        white-space: normal;
+        max-width: 200px;
+    }
+}
+
 /* Stats Grid */
 .stats-grid {
     display: grid;
