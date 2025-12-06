@@ -335,17 +335,27 @@ class ProspectsService {
             
             if (existing.success && existing.prospect) {
                 // Prospecto ya existe - NO crear duplicado
-                console.log(`✅ Prospecto ya existe (ID: ${existing.prospect.id}), saltando creación para evitar duplicado`);
+                console.log(`✅ Prospecto ya existe (ID: ${existing.prospect.id}, nombre: ${existing.prospect.nombre}), saltando creación para evitar duplicado`);
                 return {
                     success: true,
                     prospect: existing.prospect,
                     alreadyExists: true
                 };
             } else {
+                // Verificar si hubo un error en la búsqueda
+                if (existing.error) {
+                    console.warn(`⚠️ Error al buscar prospecto existente: ${existing.error}. Continuando con creación...`);
+                } else {
+                    console.log('➕ Creando nuevo prospecto (no existe en Airtable)');
+                }
+                
                 // Crear nuevo prospecto solo si no existe
-                console.log('➕ Creando nuevo prospecto (no existe en Airtable)');
                 const result = await this.airtableService.createProspect(prospectData);
-                return result;
+                if (result.success) {
+                    return { ...result, alreadyExists: false };
+                } else {
+                    return result;
+                }
             }
         } catch (error) {
             console.error('❌ Error guardando prospecto:', error);

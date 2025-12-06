@@ -531,10 +531,10 @@ class AirtableService {
             const url = `${this.apiBase}/${this.baseId}/Prospectos`;
             
             // Solo guardar campos obligatorios (que sí existen en Airtable)
-            // Los campos se llaman: nombre, chat_id, fecha_extraccion (sin "A ")
+            // Airtable usa "A nombre" y "A chat_id" como nombres de campos (con espacio)
             const fields = {
-                'nombre': prospectData.nombre || '',
-                'chat_id': prospectData.chatId || '',
+                'A nombre': prospectData.nombre || '',
+                'A chat_id': prospectData.chatId || '',
                 'fecha_extraccion': prospectData.fechaExtraccion || new Date().toISOString()
             };
 
@@ -626,8 +626,8 @@ class AirtableService {
         try {
             console.log('🔍 Buscando prospecto por chat_id:', chatId);
             
-            // Intentar con ambos nombres de campo posibles (por si acaso cambió)
-            const fieldNames = ['chat_id', 'A chat_id'];
+            // Intentar con ambos nombres de campo posibles (Airtable puede usar "A chat_id" o "chat_id")
+            const fieldNames = ['A chat_id', 'chat_id'];
             let response = null;
             let data = null;
             
@@ -644,9 +644,18 @@ class AirtableService {
                     if (response.ok) {
                         data = await response.json();
                         if (data.records && data.records.length > 0) {
-                            console.log(`✅ Prospecto encontrado usando campo: ${fieldName}`);
+                            console.log(`✅ Prospecto encontrado usando campo "${fieldName}": ${data.records.length} resultado(s)`);
+                            // Si hay múltiples resultados, tomar el primero
+                            if (data.records.length > 1) {
+                                console.warn(`⚠️ Se encontraron ${data.records.length} prospectos con el mismo chat_id. Usando el primero.`);
+                            }
                             break;
+                        } else {
+                            console.log(`  → No se encontraron prospectos con campo "${fieldName}"`);
                         }
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        console.warn(`⚠️ Respuesta no OK al buscar con campo "${fieldName}": ${response.status} - ${errorData.error?.message || 'Sin mensaje'}`);
                     }
                 } catch (e) {
                     console.log(`⚠️ Error con campo ${fieldName}, intentando siguiente...`);
@@ -654,20 +663,26 @@ class AirtableService {
                 }
             }
 
+            // Si no hay respuesta OK después de intentar todos los campos, verificar errores
             if (!response || !response.ok) {
-                const error = await response?.json();
-                throw new Error(error?.error?.message || 'Error buscando prospecto');
+                const error = await response?.json().catch(() => ({}));
+                console.warn(`⚠️ Error en respuesta HTTP al buscar prospecto: ${response?.status} - ${error?.error?.message || 'Sin mensaje'}`);
+                // Continuar en lugar de lanzar error - puede que simplemente no exista
             }
             
             if (data && data.records && data.records.length > 0) {
                 const prospect = this.transformAirtableProspect(data.records[0]);
-                console.log('✅ Prospecto encontrado:', prospect);
+                console.log('✅ Prospecto encontrado:', {
+                    id: prospect.id,
+                    nombre: prospect.nombre,
+                    chatId: prospect.chatId
+                });
                 return {
                     success: true,
                     prospect: prospect
                 };
             } else {
-                console.log('⚠️ No se encontró prospecto con chat_id:', chatId);
+                console.log(`⚠️ No se encontró prospecto con chat_id: ${chatId} (buscado en campos: ${fieldNames.join(', ')})`);
                 return {
                     success: false,
                     prospect: null
@@ -691,10 +706,10 @@ class AirtableService {
             const url = `${this.apiBase}/${this.baseId}/Prospectos/${recordId}`;
             
             // Solo actualizar campos obligatorios (que sí existen en Airtable)
-            // Los campos se llaman: nombre, chat_id, fecha_extraccion (sin "A ")
+            // Los campos se llaman: A nombre, A chat_id, fecha_extraccion (con "A " y espacio)
             const fields = {};
-            if (prospectData.nombre !== undefined) fields['nombre'] = prospectData.nombre;
-            if (prospectData.chatId !== undefined) fields['chat_id'] = prospectData.chatId;
+            if (prospectData.nombre !== undefined) fields['A nombre'] = prospectData.nombre;
+            if (prospectData.chatId !== undefined) fields['A chat_id'] = prospectData.chatId;
             if (prospectData.fechaExtraccion !== undefined) fields['fecha_extraccion'] = prospectData.fechaExtraccion;
             
             // Por ahora, solo actualizamos los 3 campos obligatorios
