@@ -2287,6 +2287,104 @@ class ChatbotDashboard {
         return chatDiv;
     }
 
+    /**
+     * Renderiza el historial de comentarios
+     */
+    renderCommentsHistory(comentarios) {
+        // Parsear comentarios (puede ser string JSON, array, o null/undefined)
+        let commentsArray = [];
+        
+        if (!comentarios) {
+            return '<div class="no-comments-message"><p>No hay comentarios aún. Sé el primero en comentar.</p></div>';
+        }
+        
+        try {
+            // Si es string, intentar parsearlo como JSON
+            if (typeof comentarios === 'string') {
+                // Si es un string JSON válido, parsearlo
+                if (comentarios.trim().startsWith('[') || comentarios.trim().startsWith('{')) {
+                    commentsArray = JSON.parse(comentarios);
+                } else {
+                    // Si es un string simple (comentario antiguo), convertirlo a array
+                    commentsArray = [{
+                        texto: comentarios,
+                        fecha: new Date().toISOString(),
+                        autor: 'Usuario'
+                    }];
+                }
+            } else if (Array.isArray(comentarios)) {
+                commentsArray = comentarios;
+            } else {
+                // Si es un objeto, convertirlo a array
+                commentsArray = [comentarios];
+            }
+        } catch (e) {
+            console.warn('⚠️ Error parseando comentarios, tratando como string simple:', e);
+            // Si falla el parseo, tratarlo como comentario simple
+            commentsArray = [{
+                texto: comentarios,
+                fecha: new Date().toISOString(),
+                autor: 'Usuario'
+            }];
+        }
+        
+        // Asegurar que sea un array
+        if (!Array.isArray(commentsArray)) {
+            commentsArray = [];
+        }
+        
+        // Ordenar por fecha (más reciente primero)
+        commentsArray.sort((a, b) => {
+            const dateA = new Date(a.fecha || a.date || 0);
+            const dateB = new Date(b.fecha || b.date || 0);
+            return dateB - dateA;
+        });
+        
+        if (commentsArray.length === 0) {
+            return '<div class="no-comments-message"><p>No hay comentarios aún. Sé el primero en comentar.</p></div>';
+        }
+        
+        // Renderizar cada comentario
+        return commentsArray.map((comment, index) => {
+            const texto = comment.texto || comment.text || comment.comentario || String(comment);
+            const fecha = comment.fecha || comment.date || comment.timestamp || new Date().toISOString();
+            const autor = comment.autor || comment.author || comment.user || 'Usuario';
+            
+            const fechaFormateada = new Date(fecha).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            return `
+                <div class="comment-item" data-comment-index="${index}">
+                    <div class="comment-header">
+                        <div class="comment-author">
+                            <i class="fas fa-user-circle"></i>
+                            <span>${autor}</span>
+                        </div>
+                        <div class="comment-date">
+                            <i class="fas fa-clock"></i>
+                            <span>${fechaFormateada}</span>
+                        </div>
+                    </div>
+                    <div class="comment-text">${this.escapeHtml(texto)}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Escapa HTML para prevenir XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     getUserInitials(user) {
         if (!user) return 'U';
         const words = user.toString().split(' ');
@@ -6201,17 +6299,26 @@ class ChatbotDashboard {
                     ` : ''}
 
                     <div class="prospect-comments-section">
-                        <h3><i class="fas fa-comment-dots"></i> Comentarios</h3>
-                        <textarea 
-                            id="prospectCommentsTextarea" 
-                            class="comments-textarea" 
-                            placeholder="Escribe tus comentarios sobre este prospecto..."
-                            rows="4">${prospect.comentarios || ''}</textarea>
-                        <div class="comments-actions">
-                            <button class="btn btn-primary btn-sm" id="saveCommentsBtn" data-prospect-id="${prospect.id}">
-                                <i class="fas fa-save"></i>
-                                Guardar Comentarios
-                            </button>
+                        <h3><i class="fas fa-comment-dots"></i> Historial de Comentarios</h3>
+                        
+                        <!-- Historial de comentarios -->
+                        <div class="comments-history" id="commentsHistory">
+                            ${this.renderCommentsHistory(prospect.comentarios)}
+                        </div>
+                        
+                        <!-- Formulario para agregar nuevo comentario -->
+                        <div class="new-comment-form">
+                            <textarea 
+                                id="prospectCommentsTextarea" 
+                                class="comments-textarea" 
+                                placeholder="Escribe un nuevo comentario..."
+                                rows="3"></textarea>
+                            <div class="comments-actions">
+                                <button class="btn btn-primary btn-sm" id="addCommentBtn" data-prospect-id="${prospect.id}">
+                                    <i class="fas fa-plus"></i>
+                                    Agregar Comentario
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -6278,13 +6385,18 @@ class ChatbotDashboard {
             });
         });
 
-        // Guardar comentarios
-        const saveCommentsBtn = document.getElementById('saveCommentsBtn');
-        if (saveCommentsBtn) {
-            saveCommentsBtn.addEventListener('click', async () => {
+        // Agregar nuevo comentario al historial
+        const addCommentBtn = document.getElementById('addCommentBtn');
+        if (addCommentBtn) {
+            addCommentBtn.addEventListener('click', async () => {
                 const textarea = document.getElementById('prospectCommentsTextarea');
-                const comments = textarea ? textarea.value.trim() : '';
-                const prospectId = saveCommentsBtn.dataset.prospectId;
+                const newCommentText = textarea ? textarea.value.trim() : '';
+                const prospectId = addCommentBtn.dataset.prospectId;
+
+                if (!newCommentText) {
+                    this.showNotification('Por favor, escribe un comentario antes de guardar', 'warning');
+                    return;
+                }
 
                 if (!prospectId) {
                     this.showNotification('Error: No se pudo identificar el prospecto', 'error');
@@ -6292,29 +6404,82 @@ class ChatbotDashboard {
                 }
 
                 try {
-                    saveCommentsBtn.disabled = true;
-                    saveCommentsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+                    addCommentBtn.disabled = true;
+                    addCommentBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Agregando...';
 
+                    // Obtener comentarios existentes
+                    const currentProspect = this.dashboardData.prospects?.find(p => p.id === prospectId);
+                    let commentsArray = [];
+                    
+                    if (currentProspect && currentProspect.comentarios) {
+                        try {
+                            if (typeof currentProspect.comentarios === 'string') {
+                                if (currentProspect.comentarios.trim().startsWith('[') || currentProspect.comentarios.trim().startsWith('{')) {
+                                    commentsArray = JSON.parse(currentProspect.comentarios);
+                                } else {
+                                    // Comentario antiguo como string simple, convertirlo a array
+                                    commentsArray = [{
+                                        texto: currentProspect.comentarios,
+                                        fecha: new Date().toISOString(),
+                                        autor: 'Usuario'
+                                    }];
+                                }
+                            } else if (Array.isArray(currentProspect.comentarios)) {
+                                commentsArray = currentProspect.comentarios;
+                            }
+                        } catch (e) {
+                            console.warn('⚠️ Error parseando comentarios existentes:', e);
+                            commentsArray = [];
+                        }
+                    }
+                    
+                    // Asegurar que sea un array
+                    if (!Array.isArray(commentsArray)) {
+                        commentsArray = [];
+                    }
+                    
+                    // Agregar nuevo comentario al inicio del array
+                    const newComment = {
+                        texto: newCommentText,
+                        fecha: new Date().toISOString(),
+                        autor: 'Usuario' // Puedes obtener el usuario actual si tienes autenticación
+                    };
+                    
+                    commentsArray.unshift(newComment); // Agregar al inicio (más reciente primero)
+                    
+                    // Guardar el array completo como JSON string
                     const result = await window.airtableService.updateProspect(prospectId, {
-                        comentarios: comments
+                        comentarios: JSON.stringify(commentsArray)
                     });
 
                     if (result.success) {
-                        this.showNotification('Comentarios guardados correctamente', 'success');
+                        this.showNotification('Comentario agregado correctamente', 'success');
+                        
                         // Actualizar el prospecto en los datos locales
                         const prospectIndex = this.dashboardData.prospects?.findIndex(p => p.id === prospectId);
                         if (prospectIndex !== undefined && prospectIndex !== -1 && this.dashboardData.prospects) {
-                            this.dashboardData.prospects[prospectIndex].comentarios = comments;
+                            this.dashboardData.prospects[prospectIndex].comentarios = JSON.stringify(commentsArray);
+                        }
+                        
+                        // Limpiar el textarea
+                        if (textarea) {
+                            textarea.value = '';
+                        }
+                        
+                        // Actualizar el historial en el modal
+                        const commentsHistory = document.getElementById('commentsHistory');
+                        if (commentsHistory) {
+                            commentsHistory.innerHTML = this.renderCommentsHistory(JSON.stringify(commentsArray));
                         }
                     } else {
-                        this.showNotification('Error al guardar comentarios: ' + (result.error || 'Desconocido'), 'error');
+                        this.showNotification('Error al guardar comentario: ' + (result.error || 'Desconocido'), 'error');
                     }
                 } catch (error) {
-                    console.error('Error guardando comentarios:', error);
-                    this.showNotification('Error al guardar comentarios', 'error');
+                    console.error('Error guardando comentario:', error);
+                    this.showNotification('Error al guardar comentario', 'error');
                 } finally {
-                    saveCommentsBtn.disabled = false;
-                    saveCommentsBtn.innerHTML = '<i class="fas fa-save"></i> Guardar Comentarios';
+                    addCommentBtn.disabled = false;
+                    addCommentBtn.innerHTML = '<i class="fas fa-plus"></i> Agregar Comentario';
                 }
             });
         }
