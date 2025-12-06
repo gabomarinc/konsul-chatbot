@@ -671,12 +671,26 @@ class AirtableService {
             }
             
             if (data && data.records && data.records.length > 0) {
-                const prospect = this.transformAirtableProspect(data.records[0]);
+                // Si hay múltiples, tomar el más reciente
+                const records = data.records.sort((a, b) => {
+                    const timeA = new Date(a.createdTime || 0).getTime();
+                    const timeB = new Date(b.createdTime || 0).getTime();
+                    return timeB - timeA; // Más reciente primero
+                });
+                
+                const prospect = this.transformAirtableProspect(records[0]);
                 console.log('✅ Prospecto encontrado:', {
                     id: prospect.id,
                     nombre: prospect.nombre,
-                    chatId: prospect.chatId
+                    chatId: prospect.chatId,
+                    totalEncontrados: data.records.length
                 });
+                
+                // Si hay múltiples, advertir
+                if (data.records.length > 1) {
+                    console.warn(`⚠️ ATENCIÓN: Se encontraron ${data.records.length} prospectos duplicados con el mismo chat_id: ${chatId}`);
+                }
+                
                 return {
                     success: true,
                     prospect: prospect
