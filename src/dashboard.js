@@ -2725,16 +2725,6 @@ class ChatbotDashboard {
                            message.photoUrl ||
                            (message.content && typeof message.content === 'string' && message.content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i)?.[0]);
             
-            // Agregar texto si existe
-            if (message.text) {
-                messageContent = `<div class="message-text">${message.text}</div>`;
-            }
-            
-            // Si solo hay imagen sin texto, asegurar que el mensaje tenga contenido
-            if (!message.text && imageUrl) {
-                messageContent = ''; // Iniciar vacío para solo mostrar imagen
-            }
-            
             // Verificar si es una imagen - aceptar tanto mayúsculas como minúsculas
             const messageType = (message.type || '').toLowerCase();
             const isImageType = messageType === 'image' || messageType === 'photo' || message.type === 'IMAGE';
@@ -2768,19 +2758,25 @@ class ChatbotDashboard {
                 });
             }
             
-            // Si tiene imageUrl, SIEMPRE mostrar la imagen
+            // Agregar texto si existe
+            if (message.text && message.text.trim()) {
+                messageContent = `<div class="message-text">${message.text}</div>`;
+            }
+            
+            // Si tiene imageUrl, SIEMPRE mostrar la imagen (incluso si no hay texto)
             if (imageUrl && !imageUrl.includes('example.com') && !imageUrl.includes('placeholder')) {
                 console.log(`🖼️ ✅ AGREGANDO imagen al contenido del mensaje ${message.id} (${isUser ? 'USUARIO' : 'AGENTE'}):`, {
                     type: message.type,
                     role: message.role,
                     url: imageUrl,
                     isUser: isUser,
+                    hasText: !!message.text,
                     messageContentLength: messageContent.length
                 });
                 
                 messageContent += `<div class="message-image">
                     <img src="${imageUrl}" alt="Imagen enviada" 
-                         style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer; display: block;"
+                         style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer; display: block; margin-top: 8px;"
                          onerror="console.error('Error cargando imagen:', this.src)"
                          onclick="window.open(this.src, '_blank')">
                 </div>`;
