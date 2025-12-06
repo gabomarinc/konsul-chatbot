@@ -98,16 +98,71 @@ class ProspectsService {
         const images = [];
         
         messages.forEach(message => {
-            if (message.role === userId && message.type === 'image' && message.imageUrl) {
+            // Solo procesar mensajes del usuario especificado
+            if (message.role !== userId) {
+                return;
+            }
+            
+            // Buscar imagen en múltiples campos posibles
+            const imageUrl = message.imageUrl || 
+                           message.image || 
+                           message.mediaUrl || 
+                           message.attachmentUrl ||
+                           message.media?.url || 
+                           message.attachment?.url ||
+                           (message.media && typeof message.media === 'string' ? message.media : null) ||
+                           message.url ||
+                           message.fileUrl;
+            
+            // Verificar si es una imagen
+            const isImage = message.type === 'image' || 
+                          (imageUrl && (
+                              /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(imageUrl) ||
+                              imageUrl.includes('image') ||
+                              imageUrl.startsWith('data:image')
+                          ));
+            
+            if (isImage && imageUrl) {
                 images.push({
-                    url: message.imageUrl,
+                    url: imageUrl,
                     timestamp: message.time || message.timestamp,
                     messageId: message.id
+                });
+                console.log(`📸 Imagen extraída del usuario:`, imageUrl);
+            }
+            
+            // Buscar en arrays de attachments
+            if (message.attachments && Array.isArray(message.attachments)) {
+                message.attachments.forEach(attachment => {
+                    const attachmentUrl = attachment.url || attachment.imageUrl || attachment.mediaUrl;
+                    if (attachmentUrl && (attachment.type === 'image' || /\.(jpg|jpeg|png|gif|webp)/i.test(attachmentUrl))) {
+                        images.push({
+                            url: attachmentUrl,
+                            timestamp: message.time || message.timestamp,
+                            messageId: message.id
+                        });
+                        console.log(`📸 Imagen extraída de attachments:`, attachmentUrl);
+                    }
+                });
+            }
+            
+            // Buscar en arrays de media
+            if (message.media && Array.isArray(message.media)) {
+                message.media.forEach(mediaItem => {
+                    const mediaUrl = mediaItem.url || mediaItem.imageUrl;
+                    if (mediaUrl && (mediaItem.type === 'image' || /\.(jpg|jpeg|png|gif|webp)/i.test(mediaUrl))) {
+                        images.push({
+                            url: mediaUrl,
+                            timestamp: message.time || message.timestamp,
+                            messageId: message.id
+                        });
+                        console.log(`📸 Imagen extraída de media array:`, mediaUrl);
+                    }
                 });
             }
         });
 
-        console.log(`✅ ${images.length} imágenes extraídas`);
+        console.log(`✅ ${images.length} imágenes extraídas del usuario`);
         return images;
     }
 
