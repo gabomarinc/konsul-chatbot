@@ -5833,7 +5833,7 @@ class ChatbotDashboard {
         if (prospects.length === 0) {
             prospectsList.innerHTML = `
                 <tr>
-                    <td colspan="5" class="text-center">
+                    <td colspan="4" class="text-center">
                         <div class="no-prospects">
                             <i class="fas fa-user-friends"></i>
                             <h3>No hay prospectos</h3>
@@ -5859,7 +5859,6 @@ class ChatbotDashboard {
         const fechaExtraccion = prospect.fechaExtraccion 
             ? new Date(prospect.fechaExtraccion).toLocaleDateString('es-ES')
             : 'N/A';
-        const estado = prospect.estado || 'Nuevo';
         const imagenesCount = prospect.imagenesUrls?.length || 0;
         const documentosCount = prospect.documentosUrls?.length || 0;
 
@@ -5869,9 +5868,6 @@ class ChatbotDashboard {
             </td>
             <td>${telefono}</td>
             <td>${fechaExtraccion}</td>
-            <td>
-                <span class="prospect-status status-${estado.toLowerCase()}">${estado}</span>
-            </td>
             <td>
                 <div class="prospect-actions">
                     <button class="btn btn-sm btn-primary view-prospect-btn" data-prospect-id="${prospect.id}">
@@ -6029,15 +6025,34 @@ class ChatbotDashboard {
 
         // Normalizar imágenes - puede ser array de strings o array de objetos
         let imagenes = prospect.imagenesUrls || [];
+        console.log('🖼️ Imágenes del prospecto (raw):', imagenes);
         if (imagenes.length > 0 && typeof imagenes[0] === 'object' && imagenes[0].url) {
             imagenes = imagenes.map(img => img.url || img);
         }
+        console.log('🖼️ Imágenes del prospecto (normalizado):', imagenes);
         
         // Normalizar documentos - puede ser array de strings o array de objetos
         let documentos = prospect.documentosUrls || [];
-        if (documentos.length > 0 && typeof documentos[0] === 'object' && documentos[0].url) {
-            documentos = documentos.map(doc => typeof doc === 'string' ? doc : doc);
+        console.log('📄 Documentos del prospecto (raw):', documentos);
+        // Si documentos es un string JSON, parsearlo
+        if (typeof documentos === 'string') {
+            try {
+                documentos = JSON.parse(documentos);
+            } catch (e) {
+                console.warn('⚠️ Error parseando documentos como JSON:', e);
+                documentos = [];
+            }
         }
+        // Si es array de objetos con url, mantener la estructura
+        if (documentos.length > 0 && typeof documentos[0] === 'object') {
+            documentos = documentos.map(doc => {
+                if (typeof doc === 'string') {
+                    return { url: doc, fileName: 'Documento', type: 'document' };
+                }
+                return doc;
+            });
+        }
+        console.log('📄 Documentos del prospecto (normalizado):', documentos);
 
         modal.innerHTML = `
             <div class="modal-content modal-large">
