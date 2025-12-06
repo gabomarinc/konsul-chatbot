@@ -4348,6 +4348,64 @@ body {
     background: #ffffff !important;
 }
 
+/* Estilos específicos para botones del modal de prospectos */
+.prospect-modal .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.5rem 2rem;
+    border-top: 1px solid #e5e7eb;
+    background: #ffffff !important;
+    margin: 0;
+    margin-top: auto;
+}
+
+.prospect-modal .modal-actions .btn {
+    min-width: 120px;
+    padding: 0.875rem 1.5rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: none;
+    outline: none;
+}
+
+.prospect-modal .modal-actions .btn-outline {
+    background: #ffffff !important;
+    color: #374151 !important;
+    border: 1.5px solid #d1d5db !important;
+}
+
+.prospect-modal .modal-actions .btn-outline:hover {
+    background: #f9fafb !important;
+    border-color: #9ca3af !important;
+    color: #111827 !important;
+}
+
+.prospect-modal .modal-actions .btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.prospect-modal .modal-actions .btn-primary:hover {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary-color)) !important;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.prospect-modal .modal-actions .btn-primary i {
+    color: #ffffff !important;
+    font-size: 1rem;
+}
+
 .prospect-modal .modal-header {
     padding: 2rem;
     border-bottom: 2px solid var(--border-color);
