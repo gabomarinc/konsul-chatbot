@@ -2385,6 +2385,321 @@ class ChatbotDashboard {
         return div.innerHTML;
     }
 
+    /**
+     * Carga y muestra los campos personalizados de GPTMaker para un prospecto
+     */
+    async loadProspectCustomFields(chatId, containerId) {
+        try {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.warn('⚠️ Contenedor de campos personalizados no encontrado');
+                return;
+            }
+
+            console.log(`📋 Cargando campos personalizados para chat: ${chatId}`);
+
+            // Buscar el chat para obtener el recipient (contactId)
+            const chat = this.dashboardData.chats?.find(c => c.id === chatId);
+            if (!chat) {
+                // Intentar cargar el chat si no está disponible
+                console.log('⚠️ Chat no encontrado en datos, intentando cargar...');
+                await this.loadRealData();
+                const chatAfterLoad = this.dashboardData.chats?.find(c => c.id === chatId);
+                if (!chatAfterLoad) {
+                    container.innerHTML = '<p class="no-custom-fields">No se encontró información del chat</p>';
+                    return;
+                }
+                chat = chatAfterLoad;
+            }
+
+            const contactId = chat.recipient || chat.userId || chatId;
+            if (!contactId) {
+                container.innerHTML = '<p class="no-custom-fields">No se pudo identificar el contacto</p>';
+                return;
+            }
+
+            console.log(`🔍 Usando contactId: ${contactId}`);
+
+            // Obtener API
+            const api = window.gptmakerAPI || this.api || (this.dataService && this.dataService.api);
+            if (!api) {
+                container.innerHTML = '<p class="no-custom-fields">API de GPTMaker no disponible</p>';
+                return;
+            }
+
+            // Obtener campos personalizados disponibles y sus valores
+            const [fieldsResult, valuesResult] = await Promise.all([
+                api.getCustomFields(),
+                api.getContactCustomFields(contactId)
+            ]);
+
+            // Obtener nombres de campos disponibles
+            const availableFields = fieldsResult.success ? fieldsResult.data : [];
+            
+            // Obtener valores del contacto
+            const customFieldValues = valuesResult.success && valuesResult.data ? valuesResult.data : {};
+
+            console.log('📊 Campos disponibles:', availableFields.length);
+            console.log('📊 Valores obtenidos:', Object.keys(customFieldValues).length);
+
+            // Renderizar campos personalizados
+            this.renderCustomFields(container, availableFields, customFieldValues);
+
+        } catch (error) {
+            console.error('❌ Error cargando campos personalizados:', error);
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `<p class="error-custom-fields">Error al cargar campos personalizados: ${error.message}</p>`;
+            }
+        }
+    }
+
+    /**
+     * Renderiza los campos personalizados en el contenedor
+     */
+    renderCustomFields(container, availableFields, customFieldValues) {
+        if (!container) return;
+
+        // Filtrar campos que tienen valores
+        const fieldsWithValues = availableFields.filter(field => {
+            const jsonName = field.jsonName;
+            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name];
+            return value && value !== '' && value !== null && value !== undefined;
+        });
+
+        if (fieldsWithValues.length === 0) {
+            container.innerHTML = `
+                <div class="no-custom-fields">
+                    <i class="fas fa-info-circle"></i>
+                    <p>Este contacto no tiene campos personalizados configurados aún.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Mapeo de nombres de campos a iconos
+        const fieldIcons = {
+            'zonaDeInteres': 'fas fa-map-marker-alt',
+            'perfilLaboral': 'fas fa-briefcase',
+            'dui': 'fas fa-id-card',
+            'constanciaDeSalario': 'fas fa-file-invoice-dollar',
+            'comprobanteDeAfp': 'fas fa-file-contract',
+            'declaracionDeRenta': 'fas fa-file-alt',
+            'comprobanteDeDomicilio': 'fas fa-home',
+            'declaracionesDeImpuestos(1–2Años)': 'fas fa-file-invoice',
+            'estadosDeCuentaBancariosPersonalesODelNegocio': 'fas fa-university',
+            'constanciasDeIngresoOContratosConClientes': 'fas fa-file-signature',
+            'modeloDeCasaDeInteres': 'fas fa-building'
+        };
+
+        const fieldsHTML = fieldsWithValues.map(field => {
+            const jsonName = field.jsonName;
+            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name] || '';
+            const icon = fieldIcons[jsonName] || 'fas fa-tag';
+            
+            // Verificar si el valor es una URL
+            const isUrl = typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
+            const isJson = typeof value === 'string' && (value.trim().startsWith('[') || value.trim().startsWith('{'));
+
+            let valueDisplay = '';
+            if (isJson) {
+                try {
+                    const parsed = JSON.parse(value);
+                    if (Array.isArray(parsed)) {
+                        valueDisplay = parsed.map(item => {
+                            const itemUrl = typeof item === 'string' ? item : (item.url || item);
+                            if (itemUrl && (itemUrl.startsWith('http://') || itemUrl.startsWith('https://'))) {
+                                return `<a href="${itemUrl}" target="_blank" class="custom-field-link">${itemUrl}</a>`;
+                            }
+                            return this.escapeHtml(String(item));
+                        }).join('<br>');
+                    } else {
+                        valueDisplay = this.escapeHtml(JSON.stringify(parsed, null, 2));
+                    }
+                } catch (e) {
+                    valueDisplay = this.escapeHtml(String(value));
+                }
+            } else if (isUrl) {
+                valueDisplay = `<a href="${value}" target="_blank" class="custom-field-link">${value}</a>`;
+            } else {
+                valueDisplay = this.escapeHtml(String(value));
+            }
+
+            return `
+                <div class="custom-field-item">
+                    <label>
+                        <i class="${icon}"></i>
+                        ${this.escapeHtml(field.name)}
+                    </label>
+                    <div class="custom-field-value">${valueDisplay}</div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="custom-fields-grid">
+                ${fieldsHTML}
+            </div>
+        `;
+    }
+
+    /**
+     * Carga y muestra los campos personalizados de GPTMaker para un prospecto
+     */
+    async loadProspectCustomFields(chatId, containerId) {
+        try {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.warn('⚠️ Contenedor de campos personalizados no encontrado');
+                return;
+            }
+
+            console.log(`📋 Cargando campos personalizados para chat: ${chatId}`);
+
+            // Buscar el chat para obtener el recipient (contactId)
+            let chat = this.dashboardData.chats?.find(c => c.id === chatId);
+            if (!chat) {
+                // Intentar cargar el chat si no está disponible
+                console.log('⚠️ Chat no encontrado en datos, intentando cargar...');
+                await this.loadRealData();
+                chat = this.dashboardData.chats?.find(c => c.id === chatId);
+                if (!chat) {
+                    container.innerHTML = '<p class="no-custom-fields">No se encontró información del chat</p>';
+                    return;
+                }
+            }
+
+            const contactId = chat.recipient || chat.userId || chatId;
+            if (!contactId) {
+                container.innerHTML = '<p class="no-custom-fields">No se pudo identificar el contacto</p>';
+                return;
+            }
+
+            console.log(`🔍 Usando contactId: ${contactId}`);
+
+            // Obtener API
+            const api = window.gptmakerAPI || this.api || (this.dataService && this.dataService.api);
+            if (!api) {
+                container.innerHTML = '<p class="no-custom-fields">API de GPTMaker no disponible</p>';
+                return;
+            }
+
+            // Obtener campos personalizados disponibles y sus valores
+            const [fieldsResult, valuesResult] = await Promise.all([
+                api.getCustomFields(),
+                api.getContactCustomFields(contactId)
+            ]);
+
+            // Obtener nombres de campos disponibles
+            const availableFields = fieldsResult.success ? fieldsResult.data : [];
+            
+            // Obtener valores del contacto
+            const customFieldValues = valuesResult.success && valuesResult.data ? valuesResult.data : {};
+
+            console.log('📊 Campos disponibles:', availableFields.length);
+            console.log('📊 Valores obtenidos:', Object.keys(customFieldValues).length);
+
+            // Renderizar campos personalizados
+            this.renderCustomFields(container, availableFields, customFieldValues);
+
+        } catch (error) {
+            console.error('❌ Error cargando campos personalizados:', error);
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `<p class="error-custom-fields">Error al cargar campos personalizados: ${error.message}</p>`;
+            }
+        }
+    }
+
+    /**
+     * Renderiza los campos personalizados en el contenedor
+     */
+    renderCustomFields(container, availableFields, customFieldValues) {
+        if (!container) return;
+
+        // Filtrar campos que tienen valores
+        const fieldsWithValues = availableFields.filter(field => {
+            const jsonName = field.jsonName;
+            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name];
+            return value && value !== '' && value !== null && value !== undefined;
+        });
+
+        if (fieldsWithValues.length === 0) {
+            container.innerHTML = `
+                <div class="no-custom-fields">
+                    <i class="fas fa-info-circle"></i>
+                    <p>Este contacto no tiene campos personalizados configurados aún.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Mapeo de nombres de campos a iconos
+        const fieldIcons = {
+            'zonaDeInteres': 'fas fa-map-marker-alt',
+            'perfilLaboral': 'fas fa-briefcase',
+            'dui': 'fas fa-id-card',
+            'constanciaDeSalario': 'fas fa-file-invoice-dollar',
+            'comprobanteDeAfp': 'fas fa-file-contract',
+            'declaracionDeRenta': 'fas fa-file-alt',
+            'comprobanteDeDomicilio': 'fas fa-home',
+            'declaracionesDeImpuestos(1–2Años)': 'fas fa-file-invoice',
+            'estadosDeCuentaBancariosPersonalesODelNegocio': 'fas fa-university',
+            'constanciasDeIngresoOContratosConClientes': 'fas fa-file-signature',
+            'modeloDeCasaDeInteres': 'fas fa-building'
+        };
+
+        const fieldsHTML = fieldsWithValues.map(field => {
+            const jsonName = field.jsonName;
+            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name] || '';
+            const icon = fieldIcons[jsonName] || 'fas fa-tag';
+            
+            // Verificar si el valor es una URL
+            const isUrl = typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
+            const isJson = typeof value === 'string' && (value.trim().startsWith('[') || value.trim().startsWith('{'));
+
+            let valueDisplay = '';
+            if (isJson) {
+                try {
+                    const parsed = JSON.parse(value);
+                    if (Array.isArray(parsed)) {
+                        valueDisplay = parsed.map(item => {
+                            const itemUrl = typeof item === 'string' ? item : (item.url || item);
+                            if (itemUrl && (itemUrl.startsWith('http://') || itemUrl.startsWith('https://'))) {
+                                return `<a href="${itemUrl}" target="_blank" class="custom-field-link">${itemUrl}</a>`;
+                            }
+                            return this.escapeHtml(String(item));
+                        }).join('<br>');
+                    } else {
+                        valueDisplay = this.escapeHtml(JSON.stringify(parsed, null, 2));
+                    }
+                } catch (e) {
+                    valueDisplay = this.escapeHtml(String(value));
+                }
+            } else if (isUrl) {
+                valueDisplay = `<a href="${value}" target="_blank" class="custom-field-link">${value}</a>`;
+            } else {
+                valueDisplay = this.escapeHtml(String(value));
+            }
+
+            return `
+                <div class="custom-field-item">
+                    <label>
+                        <i class="${icon}"></i>
+                        ${this.escapeHtml(field.name)}
+                    </label>
+                    <div class="custom-field-value">${valueDisplay}</div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="custom-fields-grid">
+                ${fieldsHTML}
+            </div>
+        `;
+    }
+
     getUserInitials(user) {
         if (!user) return 'U';
         const words = user.toString().split(' ');
@@ -6298,6 +6613,16 @@ class ChatbotDashboard {
                     </div>
                     ` : ''}
 
+                    <div class="prospect-custom-fields-section">
+                        <h3><i class="fas fa-tags"></i> Campos Personalizados de GPTMaker</h3>
+                        <div id="customFieldsContainer" class="custom-fields-container">
+                            <div class="loading-custom-fields">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Cargando campos personalizados...
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="prospect-comments-section">
                         <h3><i class="fas fa-comment-dots"></i> Historial de Comentarios</h3>
                         
@@ -6526,6 +6851,9 @@ class ChatbotDashboard {
                 }
             });
         }
+
+        // Cargar campos personalizados de GPTMaker
+        this.loadProspectCustomFields(prospect.chatId, 'customFieldsContainer');
 
         // Click fuera del modal para cerrar
         modal.addEventListener('click', (e) => {
