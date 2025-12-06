@@ -2644,6 +2644,33 @@ class ChatbotDashboard {
         }
 
         console.log(`💬 Renderizando ${messages.length} mensajes...`);
+        
+        // Log de mensajes con imágenes para debug
+        const messagesWithImages = messages.filter(msg => 
+            msg.type === 'image' || 
+            msg.imageUrl || 
+            msg.image || 
+            msg.mediaUrl || 
+            msg.attachments || 
+            msg.media
+        );
+        if (messagesWithImages.length > 0) {
+            console.log(`🖼️ ${messagesWithImages.length} mensajes con imágenes/media detectados:`, messagesWithImages);
+            messagesWithImages.forEach(msg => {
+                console.log('📸 Mensaje con media:', {
+                    id: msg.id,
+                    type: msg.type,
+                    role: msg.role,
+                    text: msg.text?.substring(0, 50),
+                    imageUrl: msg.imageUrl,
+                    image: msg.image,
+                    mediaUrl: msg.mediaUrl,
+                    attachments: msg.attachments,
+                    media: msg.media,
+                    allFields: Object.keys(msg)
+                });
+            });
+        }
 
         // Obtener nombres reales del chat si están disponibles
         const realUserName = chatData ? (chatData.userName || chatData.name || 'Usuario') : 'Usuario';
@@ -2665,10 +2692,65 @@ class ChatbotDashboard {
             }
             
             // Manejar diferentes tipos de mensajes según la documentación
-            if (message.type === 'image' && message.imageUrl) {
-                messageContent += `<div class="message-image">
-                    <img src="${message.imageUrl}" alt="Imagen" style="max-width: 200px; max-height: 200px; border-radius: 8px;">
-                </div>`;
+            // Detectar imágenes - buscar en múltiples campos posibles
+            const imageUrl = message.imageUrl || message.image || message.mediaUrl || message.attachmentUrl || 
+                           message.media?.url || message.attachment?.url || 
+                           (message.media && typeof message.media === 'string' ? message.media : null);
+            
+            if (message.type === 'image' || imageUrl) {
+                // Verificar si la URL es realmente una imagen
+                const urlToCheck = imageUrl || message.imageUrl;
+                if (urlToCheck) {
+                    const isImageUrl = /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(urlToCheck) || 
+                                     urlToCheck.includes('image') ||
+                                     urlToCheck.startsWith('data:image');
+                    
+                    if (isImageUrl || message.type === 'image') {
+                        console.log(`🖼️ Imagen detectada en mensaje ${message.id}:`, {
+                            type: message.type,
+                            url: urlToCheck,
+                            fields: Object.keys(message)
+                        });
+                        
+                        messageContent += `<div class="message-image">
+                            <img src="${urlToCheck}" alt="Imagen enviada" 
+                                 style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;"
+                                 onerror="console.error('Error cargando imagen:', this.src)"
+                                 onclick="window.open(this.src, '_blank')">
+                        </div>`;
+                    }
+                }
+            }
+            
+            // Detectar imágenes en attachments o media array
+            if (message.attachments && Array.isArray(message.attachments)) {
+                message.attachments.forEach(attachment => {
+                    const attachmentUrl = attachment.url || attachment.imageUrl || attachment.mediaUrl;
+                    if (attachmentUrl && (attachment.type === 'image' || /\.(jpg|jpeg|png|gif|webp)/i.test(attachmentUrl))) {
+                        console.log(`🖼️ Imagen en attachments:`, attachmentUrl);
+                        messageContent += `<div class="message-image">
+                            <img src="${attachmentUrl}" alt="Imagen adjunta" 
+                                 style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;"
+                                 onerror="console.error('Error cargando imagen:', this.src)"
+                                 onclick="window.open(this.src, '_blank')">
+                        </div>`;
+                    }
+                });
+            }
+            
+            if (message.media && Array.isArray(message.media)) {
+                message.media.forEach(mediaItem => {
+                    const mediaUrl = mediaItem.url || mediaItem.imageUrl;
+                    if (mediaUrl && (mediaItem.type === 'image' || /\.(jpg|jpeg|png|gif|webp)/i.test(mediaUrl))) {
+                        console.log(`🖼️ Imagen en media array:`, mediaUrl);
+                        messageContent += `<div class="message-image">
+                            <img src="${mediaUrl}" alt="Imagen de media" 
+                                 style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;"
+                                 onerror="console.error('Error cargando imagen:', this.src)"
+                                 onclick="window.open(this.src, '_blank')">
+                        </div>`;
+                    }
+                });
             }
             
             // Manejar archivos de audio - detectar diferentes formatos y URLs
