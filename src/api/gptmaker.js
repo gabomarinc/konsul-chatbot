@@ -137,6 +137,12 @@ class GPTMakerAPI {
             }
         }
     }
+    
+    clearAllCache() {
+        console.log('🗑️ Limpiando toda la cache de la API...');
+        this.cache.clear();
+        console.log('✅ Cache limpiada completamente');
+    }
 
     // Get agent trainings
     async getAgentTrainings(agentId, options = {}) {
@@ -1068,12 +1074,12 @@ class GPTMakerAPI {
         } catch (error) {
             console.error('❌ Error obteniendo agentes de la API:', error.message);
             
-            // Fallback a datos mock
-            const mockAgents = this.getMockAgents();
+            // NO usar datos mock - devolver error para que el usuario vea que hay un problema
             return {
-                success: true,
-                data: mockAgents,
-                source: 'mock'
+                success: false,
+                error: error.message,
+                data: [],
+                source: 'api-error'
             };
         }
     }

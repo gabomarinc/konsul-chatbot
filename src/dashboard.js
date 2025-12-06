@@ -116,16 +116,22 @@ class ChatbotDashboard {
             const stats = this.calculateStats(chatsResult.data, agentsResult.data, teamResult.data);
 
             // Actualizar datos del dashboard
+            // IMPORTANTE: Solo usar datos si success es true, evitar datos mock/fallback
             this.dashboardData = {
-                chats: chatsResult.success ? chatsResult.data : [],
-                agents: agentsResult.success ? agentsResult.data : [],
-                team: teamResult.success ? teamResult.data : [],
+                chats: chatsResult.success && chatsResult.source !== 'mock' ? chatsResult.data : [],
+                agents: agentsResult.success && agentsResult.source !== 'mock' ? agentsResult.data : [],
+                team: teamResult.success && teamResult.source !== 'mock' ? teamResult.data : [],
                 stats: stats,
                 apiHealth: true
             };
             
-            // Guardar copia completa de todos los chats sin filtrar
-            this.allChats = chatsResult.success ? [...chatsResult.data] : [];
+            // Log si se detectaron datos mock para debugging
+            if (agentsResult.source === 'mock') {
+                console.warn('⚠️ Se detectaron datos mock para agentes - ignorados');
+            }
+            
+            // Guardar copia completa de todos los chats sin filtrar (solo si no son mock)
+            this.allChats = chatsResult.success && chatsResult.source !== 'mock' ? [...chatsResult.data] : [];
             console.log(`✅ Guardados ${this.allChats.length} chats completos para filtrado`);
 
             console.log('✅ Datos cargados:', {
@@ -1094,16 +1100,33 @@ class ChatbotDashboard {
                 console.log('✅ GPTMakerConfig actualizado');
             }
             
-            // Limpiar cache de la API para forzar recarga con nuevo token
-            if (this.api && typeof this.api.clearCacheByPrefix === 'function') {
-                this.api.clearCacheByPrefix('');
-                console.log('🗑️ Cache de API limpiado');
+            // Limpiar TODA la cache de la API para forzar recarga con nuevo token
+            if (this.api) {
+                if (typeof this.api.clearAllCache === 'function') {
+                    this.api.clearAllCache();
+                    console.log('🗑️ Toda la cache de API limpiada');
+                } else if (typeof this.api.clearCacheByPrefix === 'function') {
+                    this.api.clearCacheByPrefix('');
+                    console.log('🗑️ Cache de API limpiada (método alternativo)');
+                }
+            }
+            
+            // Limpiar cache de DataService si existe
+            if (this.dataService && typeof this.dataService.clearCache === 'function') {
+                this.dataService.clearCache();
+                console.log('🗑️ Cache de DataService limpiada');
             }
             
             // Si hay una instancia de GPTMakerAPI en el dashboard, actualizar su token
             if (this.api && typeof this.api.setToken === 'function') {
                 this.api.setToken(apiToken);
                 console.log('✅ Token actualizado en instancia de API del dashboard');
+            }
+            
+            // Forzar recarga de la configuración de GPTMakerConfig
+            if (window.gptmakerConfig && typeof window.gptmakerConfig.reloadConfig === 'function') {
+                window.gptmakerConfig.reloadConfig();
+                console.log('🔄 Configuración de GPTMaker recargada');
             }
             
             // Update global API service if available
@@ -3057,7 +3080,15 @@ class ChatbotDashboard {
                 <div class="no-agents">
                     <i class="fas fa-robot"></i>
                     <h3>No hay agentes disponibles</h3>
-                    <p>Los agentes aparecerán aquí cuando estén disponibles</p>
+                    <p>No se encontraron agentes en tu cuenta de GPTMaker. Verifica que:</p>
+                    <ul style="text-align: left; display: inline-block; margin-top: 10px;">
+                        <li>Tu token de API esté correctamente configurado</li>
+                        <li>Tengas agentes creados en tu cuenta de GPTMaker</li>
+                        <li>El token tenga los permisos necesarios</li>
+                    </ul>
+                    <p style="margin-top: 15px; font-size: 0.9rem; color: var(--text-muted);">
+                        Puedes configurar tu token en <strong>Mi Perfil → Configuración API</strong>
+                    </p>
                 </div>
             `;
             return;
@@ -5539,8 +5570,80 @@ class ChatbotDashboard {
 
         console.log('🎯 Event listeners del modal configurados correctamente');
     }
+    
+    // Función de utilidad para limpiar toda la cache
+    clearAllCache() {
+        console.log('🧹 Limpiando toda la cache del dashboard...');
+        
+        // Limpiar cache de la API
+        if (this.api) {
+            if (typeof this.api.clearAllCache === 'function') {
+                this.api.clearAllCache();
+            } else if (typeof this.api.clearCacheByPrefix === 'function') {
+                this.api.clearCacheByPrefix('');
+            }
+            console.log('✅ Cache de API limpiada');
+        }
+        
+        // Limpiar cache de DataService
+        if (this.dataService && typeof this.dataService.clearCache === 'function') {
+            this.dataService.clearCache();
+            console.log('✅ Cache de DataService limpiada');
+        }
+        
+        console.log('✅ Toda la cache ha sido limpiada');
+        return true;
+    }
 
 }
+
+// Funciones de utilidad globales para debugging
+window.clearDashboardCache = function() {
+    console.log('🧹 Limpiando cache del dashboard...');
+    
+    if (window.dashboard && typeof window.dashboard.clearAllCache === 'function') {
+        window.dashboard.clearAllCache();
+        console.log('✅ Cache del dashboard limpiada');
+        return true;
+    }
+    
+    // Si no hay dashboard, limpiar directamente
+    if (window.dashboard && window.dashboard.api) {
+        if (typeof window.dashboard.api.clearAllCache === 'function') {
+            window.dashboard.api.clearAllCache();
+        }
+    }
+    
+    if (window.dashboard && window.dashboard.dataService) {
+        if (typeof window.dashboard.dataService.clearCache === 'function') {
+            window.dashboard.dataService.clearCache();
+        }
+    }
+    
+    console.log('✅ Cache limpiada. Recarga la página para aplicar los cambios.');
+    return true;
+};
+
+window.forceReloadData = function() {
+    console.log('🔄 Forzando recarga de datos...');
+    
+    // Limpiar cache
+    window.clearDashboardCache();
+    
+    // Recargar datos si el dashboard está disponible
+    if (window.dashboard && typeof window.dashboard.loadRealData === 'function') {
+        window.dashboard.loadRealData().then(() => {
+            console.log('✅ Datos recargados');
+        });
+    } else {
+        console.log('⚠️ Dashboard no disponible, recarga la página');
+        window.location.reload();
+    }
+};
+
+console.log('🔧 Funciones de utilidad disponibles:');
+console.log('- clearDashboardCache() - Limpiar toda la cache');
+console.log('- forceReloadData() - Limpiar cache y recargar datos');
 
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
