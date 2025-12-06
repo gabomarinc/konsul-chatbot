@@ -530,29 +530,16 @@ class AirtableService {
             
             const url = `${this.apiBase}/${this.baseId}/Prospectos`;
             
+            // Solo guardar campos obligatorios (que sí existen en Airtable)
             const fields = {
                 'nombre': prospectData.nombre || '',
                 'chat_id': prospectData.chatId || '',
                 'fecha_extraccion': prospectData.fechaExtraccion || new Date().toISOString()
             };
 
-            // Campos opcionales
-            if (prospectData.telefono) fields['telefono'] = prospectData.telefono;
-            if (prospectData.canal) fields['canal'] = prospectData.canal;
-            if (prospectData.estado) fields['estado'] = prospectData.estado;
-            if (prospectData.imagenesUrls) {
-                fields['imagenes_urls'] = Array.isArray(prospectData.imagenesUrls) 
-                    ? JSON.stringify(prospectData.imagenesUrls) 
-                    : prospectData.imagenesUrls;
-            }
-            if (prospectData.documentosUrls) {
-                fields['documentos_urls'] = Array.isArray(prospectData.documentosUrls) 
-                    ? JSON.stringify(prospectData.documentosUrls) 
-                    : prospectData.documentosUrls;
-            }
-            if (prospectData.agenteId) fields['agente_id'] = prospectData.agenteId;
-            if (prospectData.fechaUltimoMensaje) fields['fecha_ultimo_mensaje'] = prospectData.fechaUltimoMensaje;
-            if (prospectData.notas) fields['notas'] = prospectData.notas;
+            // Campos opcionales - Solo agregar si el campo existe en Airtable
+            // Por ahora, solo guardamos los 3 campos obligatorios para evitar errores
+            // Los demás campos se pueden agregar después cuando se creen en Airtable
 
             const payload = { fields };
 
@@ -684,24 +671,14 @@ class AirtableService {
             
             const url = `${this.apiBase}/${this.baseId}/Prospectos/${recordId}`;
             
+            // Solo actualizar campos obligatorios (que sí existen en Airtable)
             const fields = {};
             if (prospectData.nombre !== undefined) fields['nombre'] = prospectData.nombre;
-            if (prospectData.telefono !== undefined) fields['telefono'] = prospectData.telefono;
-            if (prospectData.canal !== undefined) fields['canal'] = prospectData.canal;
-            if (prospectData.estado !== undefined) fields['estado'] = prospectData.estado;
-            if (prospectData.imagenesUrls !== undefined) {
-                fields['imagenes_urls'] = Array.isArray(prospectData.imagenesUrls) 
-                    ? JSON.stringify(prospectData.imagenesUrls) 
-                    : prospectData.imagenesUrls;
-            }
-            if (prospectData.documentosUrls !== undefined) {
-                fields['documentos_urls'] = Array.isArray(prospectData.documentosUrls) 
-                    ? JSON.stringify(prospectData.documentosUrls) 
-                    : prospectData.documentosUrls;
-            }
-            if (prospectData.agenteId !== undefined) fields['agente_id'] = prospectData.agenteId;
-            if (prospectData.fechaUltimoMensaje !== undefined) fields['fecha_ultimo_mensaje'] = prospectData.fechaUltimoMensaje;
-            if (prospectData.notas !== undefined) fields['notas'] = prospectData.notas;
+            if (prospectData.chatId !== undefined) fields['chat_id'] = prospectData.chatId;
+            if (prospectData.fechaExtraccion !== undefined) fields['fecha_extraccion'] = prospectData.fechaExtraccion;
+            
+            // Por ahora, solo actualizamos los 3 campos obligatorios
+            // Los demás campos se pueden agregar después cuando se creen en Airtable
 
             const payload = { fields };
 
