@@ -1506,41 +1506,45 @@ class ChatbotDashboard {
     }
 
     async calculateTotalTokens() {
-        // Tokens dados inicialmente (fijo)
-        const TOKENS_INICIALES = 2500;
-        
         try {
-            // Obtener workspace activo
-            const workspaces = await this.dataService.getWorkspaces();
+            // Obtener todos los agentes para sumar sus créditos consumidos
+            const agentsResult = await this.dataService.getAgents();
             
-            if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
-                const workspace = workspaces.data[0];
+            if (agentsResult.success && agentsResult.data && agentsResult.data.length > 0) {
+                let totalCreditsConsumed = 0;
+                const agents = agentsResult.data;
                 
-                // Obtener créditos disponibles del workspace
-                const creditsResult = await this.dataService.getWorkspaceCredits(workspace.id);
+                console.log(`💰 Calculando créditos consumidos totales de ${agents.length} agentes...`);
                 
-                if (creditsResult.success && creditsResult.data) {
-                    const creditsDisponibles = creditsResult.data.credits || 0;
-                    
-                    // Calcular tokens consumidos: Tokens Iniciales - Tokens Disponibles
-                    const tokensConsumidos = TOKENS_INICIALES - creditsDisponibles;
-                    
-                    console.log('📊 Cálculo de tokens:', {
-                        tokensIniciales: TOKENS_INICIALES,
-                        creditsDisponibles: creditsDisponibles,
-                        tokensConsumidos: tokensConsumidos
-                    });
-                    
-                    // Asegurar que no sea negativo
-                    return Math.max(0, tokensConsumidos);
+                // Obtener créditos consumidos de cada agente
+                for (const agent of agents) {
+                    // Solo intentar obtener créditos si el ID parece ser real (no mock)
+                    if (agent.id && !agent.id.startsWith('agent-') && agent.id.length > 10) {
+                        try {
+                            const creditsResult = await this.dataService.getAgentCredits(agent.id);
+                            
+                            if (creditsResult.success && creditsResult.data && creditsResult.data.total) {
+                                const agentCredits = creditsResult.data.total || 0;
+                                totalCreditsConsumed += agentCredits;
+                                console.log(`✅ Agente ${agent.name}: ${agentCredits} créditos consumidos`);
+                            }
+                        } catch (error) {
+                            console.warn(`⚠️ No se pudieron obtener créditos para agente ${agent.name}:`, error.message);
+                        }
+                    }
                 }
+                
+                console.log(`📊 Total de créditos consumidos: ${totalCreditsConsumed}`);
+                return totalCreditsConsumed;
             }
+            
+            console.log('ℹ️ No hay agentes para calcular créditos consumidos');
+            return 0;
+            
         } catch (error) {
             console.error('❌ Error calculando tokens consumidos:', error);
+            return 0;
         }
-        
-        // Fallback: retornar 0 si no se pueden obtener los créditos
-        return 0;
     }
 
     // Actualizar lista de chats con datos reales
