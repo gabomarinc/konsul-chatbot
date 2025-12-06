@@ -1635,7 +1635,7 @@ class GPTMakerAPI {
                 };
 
                 // Guardar en caché
-                this.saveToCache(cacheKey, response);
+                this.setCache(cacheKey, response);
 
                 return response;
             } else {
