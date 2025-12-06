@@ -2645,7 +2645,44 @@ class ChatbotDashboard {
 
         console.log(`💬 Renderizando ${messages.length} mensajes...`);
         
-        // Log de mensajes con imágenes para debug
+        // Log de mensajes con imágenes para debug - especialmente mensajes del usuario
+        const userMessages = messages.filter(msg => msg.role === 'user');
+        const userMessagesWithMedia = userMessages.filter(msg => 
+            msg.type === 'image' || 
+            msg.imageUrl || 
+            msg.image || 
+            msg.mediaUrl || 
+            msg.attachmentUrl ||
+            msg.attachments || 
+            msg.media ||
+            JSON.stringify(msg).toLowerCase().includes('image') ||
+            JSON.stringify(msg).toLowerCase().includes('photo')
+        );
+        
+        if (userMessagesWithMedia.length > 0) {
+            console.log(`👤 ${userMessagesWithMedia.length} mensajes del USUARIO con posibles imágenes:`, userMessagesWithMedia);
+            userMessagesWithMedia.forEach(msg => {
+                console.log('📸 Mensaje del USUARIO con media:', {
+                    id: msg.id,
+                    type: msg.type,
+                    role: msg.role,
+                    text: msg.text?.substring(0, 50),
+                    imageUrl: msg.imageUrl,
+                    image: msg.image,
+                    mediaUrl: msg.mediaUrl,
+                    attachmentUrl: msg.attachmentUrl,
+                    attachments: msg.attachments,
+                    media: msg.media,
+                    url: msg.url,
+                    file: msg.file,
+                    fileUrl: msg.fileUrl,
+                    allFields: Object.keys(msg),
+                    fullMessage: msg
+                });
+            });
+        }
+        
+        // Log general de mensajes con imágenes
         const messagesWithImages = messages.filter(msg => 
             msg.type === 'image' || 
             msg.imageUrl || 
@@ -2656,20 +2693,6 @@ class ChatbotDashboard {
         );
         if (messagesWithImages.length > 0) {
             console.log(`🖼️ ${messagesWithImages.length} mensajes con imágenes/media detectados:`, messagesWithImages);
-            messagesWithImages.forEach(msg => {
-                console.log('📸 Mensaje con media:', {
-                    id: msg.id,
-                    type: msg.type,
-                    role: msg.role,
-                    text: msg.text?.substring(0, 50),
-                    imageUrl: msg.imageUrl,
-                    image: msg.image,
-                    mediaUrl: msg.mediaUrl,
-                    attachments: msg.attachments,
-                    media: msg.media,
-                    allFields: Object.keys(msg)
-                });
-            });
         }
 
         // Obtener nombres reales del chat si están disponibles
