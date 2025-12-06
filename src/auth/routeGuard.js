@@ -18,9 +18,20 @@
 
         // Asegurar que los datos estén cargados ANTES de verificar
         try {
+            console.log('🔄 RouteGuard: Cargando datos de autenticación...');
             window.authService.loadAuthData();
-            // Dar un pequeño delay para asegurar que los datos se cargaron
-            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Dar más tiempo para asegurar que los datos se cargaron completamente
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // Verificar que los datos se cargaron correctamente
+            console.log('🔍 RouteGuard: Verificando datos cargados:', {
+                hasUser: !!window.authService.currentUser,
+                hasToken: !!window.authService.token,
+                userEmail: window.authService.currentUser?.email,
+                localStorage: !!localStorage.getItem('authData'),
+                sessionStorage: !!sessionStorage.getItem('authData')
+            });
         } catch (error) {
             console.error('❌ Error cargando datos de autenticación en routeGuard:', error);
         }
@@ -32,7 +43,8 @@
             isAuth,
             isLogin,
             hasUser: !!window.authService.currentUser,
-            hasToken: !!window.authService.token
+            hasToken: !!window.authService.token,
+            userEmail: window.authService.currentUser?.email
         });
 
         if (isAuth && isLogin) {

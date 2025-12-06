@@ -439,6 +439,11 @@ class AuthService {
     // ===== MÉTODOS DE GESTIÓN DE DATOS =====
 
     saveAuthData(rememberMe = true) {
+        if (!this.currentUser || !this.token) {
+            console.error('❌ No se pueden guardar datos de autenticación: faltan usuario o token');
+            return;
+        }
+        
         const authData = {
             user: this.currentUser,
             token: this.token,
@@ -455,22 +460,45 @@ class AuthService {
             duration: rememberMe ? '30 días' : '7 días'
         });
 
-        // Siempre usar localStorage para persistencia entre recargas
-        // Si rememberMe es true, la sesión durará 30 días, si es false durará 7 días
-        localStorage.setItem('authData', JSON.stringify(authData));
-        
-        // También guardar en sessionStorage como respaldo
-        sessionStorage.setItem('authData', JSON.stringify(authData));
+        try {
+            // Siempre usar localStorage para persistencia entre recargas
+            // Si rememberMe es true, la sesión durará 30 días, si es false durará 7 días
+            const authDataString = JSON.stringify(authData);
+            localStorage.setItem('authData', authDataString);
+            
+            // También guardar en sessionStorage como respaldo
+            sessionStorage.setItem('authData', authDataString);
+            
+            // Verificar que se guardó correctamente
+            const saved = localStorage.getItem('authData');
+            if (saved) {
+                console.log('✅ Datos guardados correctamente en localStorage');
+            } else {
+                console.error('❌ Error: Los datos no se guardaron en localStorage');
+            }
+        } catch (error) {
+            console.error('❌ Error guardando datos de autenticación:', error);
+        }
     }
 
     loadAuthData() {
+        console.log('🔄 Cargando datos de autenticación...');
+        
         // Intentar cargar desde localStorage primero
         let authData = localStorage.getItem('authData');
+        let storageSource = 'localStorage';
         
         if (!authData) {
             // Si no hay en localStorage, intentar desde sessionStorage
             authData = sessionStorage.getItem('authData');
+            storageSource = 'sessionStorage';
         }
+
+        console.log('🔍 Verificando storage:', {
+            hasLocalStorage: !!localStorage.getItem('authData'),
+            hasSessionStorage: !!sessionStorage.getItem('authData'),
+            source: storageSource
+        });
 
         if (authData) {
             try {
@@ -479,9 +507,12 @@ class AuthService {
                 this.token = parsed.token;
 
                 console.log('📂 Datos cargados desde storage:', {
+                    source: storageSource,
                     user: this.currentUser,
                     hasId: !!this.currentUser?.id,
-                    userId: this.currentUser?.id
+                    userId: this.currentUser?.id,
+                    hasToken: !!this.token,
+                    tokenLength: this.token ? this.token.length : 0
                 });
 
                 // Verificar si el token no ha expirado
@@ -504,7 +535,19 @@ class AuthService {
             }
         } else {
             console.log('⚠️ No hay datos de autenticación en storage');
+            console.log('🔍 Verificando localStorage:', {
+                hasAuthData: !!localStorage.getItem('authData'),
+                allKeys: Object.keys(localStorage).filter(k => k.includes('auth'))
+            });
         }
+        
+        // Log final del estado
+        console.log('📊 Estado final después de loadAuthData:', {
+            isAuthenticated: this.isAuthenticated(),
+            hasUser: !!this.currentUser,
+            hasToken: !!this.token,
+            userEmail: this.currentUser?.email
+        });
     }
 
     clearAuthData() {
@@ -616,3 +659,29 @@ class AuthService {
 
 // Crear instancia global
 window.authService = new AuthService();
+
+// Asegurar que init() se ejecute después de que el DOM esté listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('🔄 Re-inicializando AuthService después de DOMContentLoaded...');
+        if (window.authService) {
+            window.authService.loadAuthData();
+            console.log('📊 Estado después de re-cargar:', {
+                isAuthenticated: window.authService.isAuthenticated(),
+                hasUser: !!window.authService.currentUser,
+                hasToken: !!window.authService.token
+            });
+        }
+    });
+} else {
+    // Si el DOM ya está listo, cargar datos inmediatamente
+    console.log('🔄 DOM ya listo, re-cargando datos de autenticación...');
+    if (window.authService) {
+        window.authService.loadAuthData();
+        console.log('📊 Estado después de re-cargar:', {
+            isAuthenticated: window.authService.isAuthenticated(),
+            hasUser: !!window.authService.currentUser,
+            hasToken: !!window.authService.token
+        });
+    }
+}
