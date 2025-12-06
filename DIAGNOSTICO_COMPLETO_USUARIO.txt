@@ -1,0 +1,76 @@
+COPIA Y PEGA ESTO EN LA CONSOLA (F12):
+
+(async function() {
+    console.log('🔍 DIAGNÓSTICO COMPLETO');
+    
+    // Buscar API y datos
+    const api = window.gptmakerAPI || window.dashboard?.api;
+    const dashboard = window.dashboard;
+    const chats = dashboard?.dashboardData?.chats || [];
+    
+    // Buscar chat de Gabriel
+    const gabrielChat = chats.find(c => 
+        c.name && c.name.toLowerCase().includes('gabriel')
+    );
+    
+    if (!gabrielChat) {
+        console.log('❌ Chat de Gabriel no encontrado');
+        console.log('📋 Chats disponibles:', chats.map(c => c.name));
+        return;
+    }
+    
+    console.log('✅ Chat encontrado:', gabrielChat.name);
+    console.log('📊 CHAT COMPLETO (estructura):', JSON.stringify(gabrielChat, null, 2));
+    console.log('📊 Chat ID:', gabrielChat.id);
+    console.log('📊 Recipient:', gabrielChat.recipient);
+    console.log('📊 User ID:', gabrielChat.userId);
+    
+    // Obtener campos disponibles
+    console.log('\n📋 Obteniendo campos personalizados disponibles...');
+    const fieldsResult = await api.getCustomFields();
+    console.log('📊 Campos disponibles:', fieldsResult);
+    
+    if (fieldsResult.success) {
+        console.log(`✅ ${fieldsResult.data.length} campos encontrados:`);
+        fieldsResult.data.forEach((f, i) => {
+            console.log(`  ${i + 1}. ${f.name} (${f.jsonName || 'N/A'})`);
+        });
+    }
+    
+    // Buscar valores en el chat
+    console.log('\n🔍 Buscando valores en el chat...');
+    const buscarValores = (obj, path = '') => {
+        const resultados = [];
+        for (const key in obj) {
+            const currentPath = path ? `${path}.${key}` : key;
+            const value = obj[key];
+            
+            if (key.toLowerCase().includes('custom') || 
+                key.toLowerCase().includes('field') ||
+                key.toLowerCase().includes('perfil') ||
+                key.toLowerCase().includes('dui') ||
+                key.toLowerCase().includes('constancia')) {
+                resultados.push({ path: currentPath, value: value });
+            }
+            
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                resultados.push(...buscarValores(value, currentPath));
+            }
+        }
+        return resultados;
+    };
+    
+    const valoresEncontrados = buscarValores(gabrielChat);
+    if (valoresEncontrados.length > 0) {
+        console.log('✅ Valores encontrados en el chat:');
+        valoresEncontrados.forEach(v => {
+            console.log(`  - ${v.path}:`, v.value);
+        });
+    } else {
+        console.log('❌ No se encontraron valores en el objeto chat');
+    }
+    
+    console.log('\n✅ DIAGNÓSTICO COMPLETADO');
+    console.log('💡 Por favor comparte estos logs para ayudarte mejor');
+})();
+
