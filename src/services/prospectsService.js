@@ -2,7 +2,7 @@
 class ProspectsService {
     constructor() {
         this.airtableService = window.airtableService;
-        this.processingChatIds = new Set(); // Para evitar condiciones de carrera
+        this.savingProspects = new Set(); // Para evitar condiciones de carrera
         console.log('👥 ProspectsService inicializado');
     }
 
@@ -330,45 +330,27 @@ class ProspectsService {
                 throw new Error('AirtableService no disponible');
             }
 
-            // Evitar condiciones de carrera: si ya se está guardando este chat_id, esperar
+            // PROTECCIÓN CONTRA CONDICIONES DE CARRERA
+            // Si ya se está guardando este chat_id, esperar y verificar nuevamente
             if (this.savingProspects.has(prospectData.chatId)) {
                 console.log(`⏳ Ya se está guardando este prospecto (chat_id: ${prospectData.chatId}), esperando...`);
-                // Esperar un poco y verificar nuevamente
-                await new Promise(resolve => setTimeout(resolve, 500));
-                const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
-                if (existing.success && existing.prospect) {
-                    console.log(`✅ Prospecto ya fue creado por otro proceso, usando el existente`);
-                    return {
-                        success: true,
-                        prospect: existing.prospect,
-                        alreadyExists: true
-                    };
+                // Esperar y verificar nuevamente hasta 3 veces
+                for (let i = 0; i < 3; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    const existingAfterWait = await this.airtableService.getProspectByChatId(prospectData.chatId);
+                    if (existingAfterWait.success && existingAfterWait.prospect) {
+                        console.log(`✅ Prospecto ya fue creado por otro proceso durante la espera`);
+                        return {
+                            success: true,
+                            prospect: existingAfterWait.prospect,
+                            alreadyExists: true
+                        };
+                    }
                 }
             }
             
             // Marcar que estamos guardando este chat_id
             this.savingProspects.add(prospectData.chatId);
-            
-            try {
-            // PROTECCIÓN CONTRA CONDICIONES DE CARRERA
-            // Si ya se está procesando este chat_id, esperar y verificar nuevamente
-            if (this.processingChatIds.has(prospectData.chatId)) {
-                console.log(`⏳ Ya se está procesando este prospecto (chat_id: ${prospectData.chatId}), esperando...`);
-                // Esperar y verificar nuevamente
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                const existingAfterWait = await this.airtableService.getProspectByChatId(prospectData.chatId);
-                if (existingAfterWait.success && existingAfterWait.prospect) {
-                    console.log(`✅ Prospecto ya fue creado por otro proceso durante la espera`);
-                    return {
-                        success: true,
-                        prospect: existingAfterWait.prospect,
-                        alreadyExists: true
-                    };
-                }
-            }
-            
-            // Marcar que estamos procesando este chat_id
-            this.processingChatIds.add(prospectData.chatId);
             
             try {
                 // Verificar si el prospecto ya existe por chat_id ANTES de crear
@@ -404,10 +386,6 @@ class ProspectsService {
                         return result;
                     }
                 }
-            } finally {
-                // Siempre remover el chat_id del set, incluso si hay error
-                this.processingChatIds.delete(prospectData.chatId);
-            }
             } finally {
                 // Siempre remover el chat_id del set, incluso si hay error
                 this.savingProspects.delete(prospectData.chatId);
