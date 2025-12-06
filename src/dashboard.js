@@ -2427,20 +2427,67 @@ class ChatbotDashboard {
                 return;
             }
 
-            // Obtener campos personalizados disponibles y sus valores
-            const [fieldsResult, valuesResult] = await Promise.all([
-                api.getCustomFields(),
-                api.getContactCustomFields(contactId)
-            ]);
-
-            // Obtener nombres de campos disponibles
+            // Obtener campos personalizados disponibles
+            const fieldsResult = await api.getCustomFields();
             const availableFields = fieldsResult.success ? fieldsResult.data : [];
-            
-            // Obtener valores del contacto
-            const customFieldValues = valuesResult.success && valuesResult.data ? valuesResult.data : {};
-
             console.log('📊 Campos disponibles:', availableFields.length);
+            console.log('📋 Estructura completa del chat:', JSON.stringify(chat, null, 2));
+            
+            // Intentar obtener valores usando múltiples métodos
+            let customFieldValues = {};
+            
+            // Método 1: Verificar si están en el objeto chat directamente
+            console.log('🔍 Método 1: Verificando objeto chat...');
+            if (chat.customFields || chat.custom_fields || chat.fields || 
+                (chat.user && (chat.user.customFields || chat.user.custom_fields))) {
+                customFieldValues = chat.customFields || chat.custom_fields || chat.fields || 
+                                  chat.user?.customFields || chat.user?.custom_fields || {};
+                if (Object.keys(customFieldValues).length > 0) {
+                    console.log('✅ Campos personalizados encontrados en el objeto chat');
+                }
+            }
+            
+            // Método 2: Intentar obtener todos los contactos y buscar el específico
+            if (Object.keys(customFieldValues).length === 0) {
+                console.log('🔍 Método 2: Obteniendo todos los contactos...');
+                try {
+                    const contactsResult = await api.getAllContacts();
+                    if (contactsResult.success && contactsResult.data && contactsResult.data.length > 0) {
+                        console.log(`📋 ${contactsResult.data.length} contactos obtenidos`);
+                        const matchingContact = contactsResult.data.find(c => 
+                            c.id === contactId || c.id === chat.recipient || c.id === chat.userId ||
+                            (c.recipient && (c.recipient === contactId || c.recipient === chat.recipient)) ||
+                            (c.userId && (c.userId === contactId || c.userId === chat.userId))
+                        );
+                        
+                        if (matchingContact) {
+                            console.log('✅ Contacto encontrado');
+                            customFieldValues = matchingContact.customFields || matchingContact.custom_fields || 
+                                              matchingContact.fields || matchingContact.user?.customFields || {};
+                        }
+                    }
+                } catch (err) {
+                    console.log('⚠️ Error obteniendo contactos:', err.message);
+                }
+            }
+            
+            // Método 3: Intentar endpoint directo (puede fallar con HTTP 500)
+            if (Object.keys(customFieldValues).length === 0) {
+                console.log('🔍 Método 3: Intentando endpoint directo (puede fallar con HTTP 500)...');
+                try {
+                    const valuesResult = await api.getContactCustomFields(contactId);
+                    if (valuesResult.success && valuesResult.data) {
+                        customFieldValues = valuesResult.data;
+                    }
+                } catch (err) {
+                    console.log('⚠️ Endpoint directo falló (esperado si hay HTTP 500):', err.message);
+                }
+            }
+            
             console.log('📊 Valores obtenidos:', Object.keys(customFieldValues).length);
+            if (Object.keys(customFieldValues).length > 0) {
+                console.log('📋 Valores encontrados:', customFieldValues);
+            }
 
             // Renderizar campos personalizados
             this.renderCustomFields(container, availableFields, customFieldValues);
@@ -2584,20 +2631,67 @@ class ChatbotDashboard {
                 return;
             }
 
-            // Obtener campos personalizados disponibles y sus valores
-            const [fieldsResult, valuesResult] = await Promise.all([
-                api.getCustomFields(),
-                api.getContactCustomFields(contactId)
-            ]);
-
-            // Obtener nombres de campos disponibles
+            // Obtener campos personalizados disponibles
+            const fieldsResult = await api.getCustomFields();
             const availableFields = fieldsResult.success ? fieldsResult.data : [];
-            
-            // Obtener valores del contacto
-            const customFieldValues = valuesResult.success && valuesResult.data ? valuesResult.data : {};
-
             console.log('📊 Campos disponibles:', availableFields.length);
+            console.log('📋 Estructura completa del chat:', JSON.stringify(chat, null, 2));
+            
+            // Intentar obtener valores usando múltiples métodos
+            let customFieldValues = {};
+            
+            // Método 1: Verificar si están en el objeto chat directamente
+            console.log('🔍 Método 1: Verificando objeto chat...');
+            if (chat.customFields || chat.custom_fields || chat.fields || 
+                (chat.user && (chat.user.customFields || chat.user.custom_fields))) {
+                customFieldValues = chat.customFields || chat.custom_fields || chat.fields || 
+                                  chat.user?.customFields || chat.user?.custom_fields || {};
+                if (Object.keys(customFieldValues).length > 0) {
+                    console.log('✅ Campos personalizados encontrados en el objeto chat');
+                }
+            }
+            
+            // Método 2: Intentar obtener todos los contactos y buscar el específico
+            if (Object.keys(customFieldValues).length === 0) {
+                console.log('🔍 Método 2: Obteniendo todos los contactos...');
+                try {
+                    const contactsResult = await api.getAllContacts();
+                    if (contactsResult.success && contactsResult.data && contactsResult.data.length > 0) {
+                        console.log(`📋 ${contactsResult.data.length} contactos obtenidos`);
+                        const matchingContact = contactsResult.data.find(c => 
+                            c.id === contactId || c.id === chat.recipient || c.id === chat.userId ||
+                            (c.recipient && (c.recipient === contactId || c.recipient === chat.recipient)) ||
+                            (c.userId && (c.userId === contactId || c.userId === chat.userId))
+                        );
+                        
+                        if (matchingContact) {
+                            console.log('✅ Contacto encontrado');
+                            customFieldValues = matchingContact.customFields || matchingContact.custom_fields || 
+                                              matchingContact.fields || matchingContact.user?.customFields || {};
+                        }
+                    }
+                } catch (err) {
+                    console.log('⚠️ Error obteniendo contactos:', err.message);
+                }
+            }
+            
+            // Método 3: Intentar endpoint directo (puede fallar con HTTP 500)
+            if (Object.keys(customFieldValues).length === 0) {
+                console.log('🔍 Método 3: Intentando endpoint directo (puede fallar con HTTP 500)...');
+                try {
+                    const valuesResult = await api.getContactCustomFields(contactId);
+                    if (valuesResult.success && valuesResult.data) {
+                        customFieldValues = valuesResult.data;
+                    }
+                } catch (err) {
+                    console.log('⚠️ Endpoint directo falló (esperado si hay HTTP 500):', err.message);
+                }
+            }
+            
             console.log('📊 Valores obtenidos:', Object.keys(customFieldValues).length);
+            if (Object.keys(customFieldValues).length > 0) {
+                console.log('📋 Valores encontrados:', customFieldValues);
+            }
 
             // Renderizar campos personalizados
             this.renderCustomFields(container, availableFields, customFieldValues);
