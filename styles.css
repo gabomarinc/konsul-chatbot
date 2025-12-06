@@ -4291,18 +4291,61 @@ body {
 }
 
 /* Modal de Prospecto */
+.prospect-modal.modal-overlay {
+    background: rgba(0, 0, 0, 0.75) !important;
+    backdrop-filter: blur(10px);
+    z-index: 10000;
+}
+
 .prospect-modal .modal-content {
     max-width: 900px;
     max-height: 90vh;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    background: #ffffff !important;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    padding: 0;
+    overflow: hidden;
+    border: none;
 }
 
 .prospect-modal .modal-body {
     padding: 2rem;
     flex: 1;
     overflow-y: auto;
+    background: #ffffff !important;
+}
+
+/* Asegurar que todas las secciones tengan fondo sólido y limpio */
+.prospect-modal .prospect-info-section,
+.prospect-modal .prospect-images-section,
+.prospect-modal .prospect-documents-section {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb;
+}
+
+.prospect-modal .no-media-message {
+    background: #f9fafb !important;
+    border: 2px dashed #d1d5db;
+}
+
+/* Eliminar cualquier transparencia o herencia de fondo problemática */
+.prospect-modal .modal-body {
+    background: #ffffff !important;
+}
+
+.prospect-modal .modal-content {
+    background: #ffffff !important;
+}
+
+.prospect-modal .info-item {
+    background: #f9fafb !important;
+}
+
+.prospect-modal .document-item {
+    background: #ffffff !important;
 }
 
 .prospect-modal .modal-header {
@@ -4365,9 +4408,9 @@ body {
 .prospect-documents-section {
     margin-bottom: 2rem;
     padding: 1.5rem;
-    background: var(--bg-secondary);
+    background: #ffffff !important;
     border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
+    border: 1px solid #e5e7eb;
 }
 
 .prospect-info-section h3,
@@ -4395,9 +4438,9 @@ body {
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
-    background: var(--bg-primary);
+    background: #f9fafb !important;
     border-radius: var(--radius-md);
-    border: 1px solid var(--border-light);
+    border: 1px solid #e5e7eb;
 }
 
 .info-item label {
@@ -4478,7 +4521,7 @@ body {
     align-items: center;
     gap: 1rem;
     padding: 1rem;
-    background: var(--bg-secondary);
+    background: white !important;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
 }
@@ -4509,9 +4552,9 @@ body {
     text-align: center;
     padding: 3rem;
     color: var(--text-secondary);
-    background: var(--bg-secondary);
+    background: #f9fafb !important;
     border-radius: var(--radius-md);
-    border: 2px dashed var(--border-color);
+    border: 2px dashed #e5e7eb;
 }
 
 .no-media-message i {
