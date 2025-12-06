@@ -6038,6 +6038,7 @@ class ChatbotDashboard {
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
         if (closeBtn2) closeBtn2.addEventListener('click', closeModal);
         if (goToChatBtn) {
+            const chatId = prospect.chatId; // Capturar el chatId antes del event listener
             goToChatBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -6046,11 +6047,11 @@ class ChatbotDashboard {
                 closeModal();
                 
                 // Pequeño delay para que el modal se cierre visualmente
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => setTimeout(resolve, 150));
                 
                 // Luego navegar al chat
                 try {
-                    await this.navigateToChat(prospect.chatId);
+                    await this.navigateToChat(chatId);
                 } catch (error) {
                     console.error('Error navegando al chat:', error);
                     // El modal ya está cerrado, así que no hay problema
