@@ -8,18 +8,43 @@ async function testCustomFields() {
     console.log('🧪 INICIANDO PRUEBAS DE CAMPOS PERSONALIZADOS');
     console.log('🧪 ==========================================\n');
 
-    // 1. Verificar que la API esté disponible
-    if (!window.gptmakerAPI) {
-        console.error('❌ GPTMakerAPI no está disponible. Asegúrate de que el dashboard esté cargado.');
+    // 1. Verificar y obtener la instancia de API disponible
+    let api = null;
+    
+    // Intentar obtener la API de diferentes fuentes
+    if (window.gptmakerAPI) {
+        api = window.gptmakerAPI;
+        console.log('✅ Usando window.gptmakerAPI\n');
+    } else if (window.dashboard && window.dashboard.api) {
+        api = window.dashboard.api;
+        console.log('✅ Usando window.dashboard.api\n');
+    } else if (window.dashboard && window.dashboard.dataService && window.dashboard.dataService.api) {
+        api = window.dashboard.dataService.api;
+        console.log('✅ Usando window.dashboard.dataService.api\n');
+    } else if (typeof GPTMakerAPI !== 'undefined') {
+        // Crear una nueva instancia si la clase está disponible
+        console.log('⚠️ No hay instancia global, creando una nueva...\n');
+        api = new GPTMakerAPI();
+        console.log('✅ Nueva instancia de GPTMakerAPI creada\n');
+    }
+    
+    if (!api) {
+        console.error('❌ GPTMakerAPI no está disponible. Esperando que el dashboard cargue...');
+        console.log('\n💡 Intenta:');
+        console.log('   1. Esperar unos segundos y ejecutar de nuevo: testCustomFields()');
+        console.log('   2. Verificar que el dashboard esté completamente cargado');
+        console.log('   3. Recargar la página y esperar a que cargue todo\n');
         return;
     }
 
-    console.log('✅ GPTMakerAPI disponible\n');
+    // Guardar referencia globalmente para uso posterior
+    window.gptmakerAPI = api;
+    console.log('✅ API disponible y lista para usar\n');
 
     // 2. Obtener campos personalizados del workspace
     console.log('📋 PASO 1: Obteniendo campos personalizados del workspace...');
     try {
-        const customFieldsResult = await window.gptmakerAPI.getCustomFields();
+        const customFieldsResult = await api.getCustomFields();
         
         if (customFieldsResult.success) {
             console.log(`✅ Se encontraron ${customFieldsResult.data.length} campos personalizados:\n`);
@@ -79,7 +104,22 @@ async function testCustomFields() {
     // 3. Obtener un chat de ejemplo para ver su estructura
     console.log('💬 PASO 2: Analizando estructura de un chat de ejemplo...');
     try {
-        const chatsResult = await window.dataService.getAllChats({ pageSize: 1 });
+        // Obtener dataService de diferentes fuentes
+        let dataService = null;
+        if (window.dataService) {
+            dataService = window.dataService;
+        } else if (window.dashboard && window.dashboard.dataService) {
+            dataService = window.dashboard.dataService;
+        } else if (typeof DataService !== 'undefined' && api) {
+            dataService = new DataService(api);
+        }
+        
+        if (!dataService) {
+            console.error('❌ DataService no está disponible');
+            return;
+        }
+        
+        const chatsResult = await dataService.getAllChats({ pageSize: 1 });
         
         if (chatsResult.success && chatsResult.data && chatsResult.data.length > 0) {
             const chat = chatsResult.data[0];
@@ -127,7 +167,7 @@ async function testCustomFields() {
     console.log('📨 PASO 3: Analizando mensajes del chat para buscar información...');
     try {
         if (window.exampleChat) {
-            const messagesResult = await window.dataService.getAllChatMessages(window.exampleChat.id);
+            const messagesResult = await dataService.getAllChatMessages(window.exampleChat.id);
             
             if (messagesResult.success && messagesResult.data) {
                 console.log(`✅ Se obtuvieron ${messagesResult.data.length} mensajes del chat\n`);
