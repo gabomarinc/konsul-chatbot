@@ -1,0 +1,175 @@
+COPIA Y PEGA ESTE CÓDIGO COMPLETO EN LA CONSOLA:
+
+(async function testProspectCustomFields() {
+    console.log('🧪 ==========================================');
+    console.log('🧪 PRUEBA: Campos Personalizados de Gabriel');
+    console.log('🧪 ==========================================\n');
+
+    // Buscar API
+    const api = window.gptmakerAPI || 
+                (window.dashboard && window.dashboard.api) ||
+                (window.dashboard && window.dashboard.dataService && window.dashboard.dataService.api);
+    
+    if (!api) {
+        console.error('❌ API no disponible');
+        return;
+    }
+
+    console.log('✅ API encontrada\n');
+
+    // Obtener chats
+    let dataService = window.dataService || 
+                     (window.dashboard && window.dashboard.dataService);
+    
+    if (!dataService) {
+        console.error('❌ DataService no disponible');
+        return;
+    }
+
+    const chatsResult = await dataService.getAllChats({ pageSize: 20 });
+    
+    if (!chatsResult.success || !chatsResult.data || chatsResult.data.length === 0) {
+        console.error('❌ No se pudieron obtener chats');
+        return;
+    }
+
+    console.log(`✅ ${chatsResult.data.length} chats obtenidos\n`);
+
+    // Buscar chat de Gabriel
+    const gabrielChat = chatsResult.data.find(c => 
+        (c.name && c.name.toLowerCase().includes('gabriel'))
+    );
+
+    if (!gabrielChat) {
+        console.log('⚠️ No se encontró chat de Gabriel');
+        console.log('📋 Chats disponibles:');
+        chatsResult.data.slice(0, 5).forEach((c, i) => {
+            console.log(`  ${i + 1}. ${c.name || 'Sin nombre'} (ID: ${c.id})`);
+        });
+        return;
+    }
+
+    console.log('✅ Chat de Gabriel encontrado:', gabrielChat.name);
+    console.log('ID:', gabrielChat.id);
+    console.log('Recipient:', gabrielChat.recipient);
+    console.log('User ID:', gabrielChat.userId);
+    console.log('\n📋 TODAS LAS PROPIEDADES DEL CHAT:');
+    console.log(JSON.stringify(gabrielChat, null, 2));
+
+    // Obtener workspace
+    const workspaces = await api.getWorkspaces();
+    const workspaceId = workspaces.success && workspaces.data && workspaces.data.length > 0 
+        ? workspaces.data[0].id 
+        : null;
+
+    console.log('\n📋 Workspace ID:', workspaceId);
+
+    // Obtener campos disponibles
+    console.log('\n📋 CAMPOS PERSONALIZADOS DISPONIBLES:');
+    const fieldsResult = await api.getCustomFields();
+    if (fieldsResult.success) {
+        console.log(`✅ ${fieldsResult.data.length} campos encontrados:`);
+        fieldsResult.data.forEach((f, i) => {
+            console.log(`  ${i + 1}. ${f.name} (${f.jsonName || 'N/A'})`);
+        });
+        window.availableFields = fieldsResult.data;
+    }
+
+    // Intentar obtener valores con diferentes contactIds
+    const contactIds = [
+        gabrielChat.recipient,
+        gabrielChat.userId,
+        gabrielChat.id.split('-').pop(),
+        gabrielChat.id
+    ].filter(id => id);
+
+    console.log('\n🔍 CONTACT IDs A PROBAR:', contactIds);
+
+    for (const contactId of contactIds) {
+        if (!contactId) continue;
+        
+        console.log(`\n\n🔄 ========================================`);
+        console.log(`🔄 PROBANDO CON CONTACT ID: ${contactId}`);
+        console.log(`🔄 ========================================\n`);
+        
+        // Método 1: getContactCustomFields
+        console.log('📋 Método 1: getContactCustomFields()');
+        try {
+            const result1 = await api.getContactCustomFields(contactId);
+            console.log('  - Success:', result1.success);
+            console.log('  - Error:', result1.error);
+            console.log('  - Data type:', typeof result1.data);
+            console.log('  - Data:', result1.data);
+            
+            if (result1.data && typeof result1.data === 'object') {
+                console.log('  - Keys:', Object.keys(result1.data));
+                if (Object.keys(result1.data).length > 0) {
+                    console.log('  ✅ ¡VALORES ENCONTRADOS!');
+                    window.customFieldsValues = result1.data;
+                }
+            }
+        } catch (error) {
+            console.log('  ❌ Error:', error.message);
+        }
+
+        // Método 2: Endpoints directos
+        if (workspaceId) {
+            console.log('\n📋 Método 2: Endpoints directos');
+            const endpoints = [
+                `/v2/contact/${contactId}`,
+                `/v2/workspace/${workspaceId}/contact/${contactId}`,
+                `/v2/contact/${contactId}/custom-fields`,
+                `/v2/workspace/${workspaceId}/contact/${contactId}/custom-fields`
+            ];
+
+            for (const endpoint of endpoints) {
+                try {
+                    console.log(`  🔄 Probando: ${endpoint}`);
+                    const directResult = await api.request(endpoint);
+                    
+                    if (directResult.success && directResult.data) {
+                        console.log(`  ✅ ¡Éxito con ${endpoint}!`);
+                        console.log('  📊 Estructura de datos:');
+                        console.log(JSON.stringify(directResult.data, null, 2));
+                        window.contactData = directResult.data;
+                        
+                        // Buscar campos personalizados en cualquier nivel
+                        const searchForCustomFields = (obj, path = '') => {
+                            if (!obj || typeof obj !== 'object') return;
+                            
+                            for (const key in obj) {
+                                const currentPath = path ? `${path}.${key}` : key;
+                                
+                                if (key.toLowerCase().includes('custom') || 
+                                    key.toLowerCase().includes('field')) {
+                                    console.log(`  📋 Campo personalizado encontrado en: ${currentPath}`);
+                                    console.log(`     Valor:`, obj[key]);
+                                }
+                                
+                                if (typeof obj[key] === 'object') {
+                                    searchForCustomFields(obj[key], currentPath);
+                                }
+                            }
+                        };
+                        
+                        console.log('  🔍 Buscando campos personalizados en la respuesta...');
+                        searchForCustomFields(directResult.data);
+                    } else {
+                        console.log(`  ❌ Sin datos`);
+                    }
+                } catch (error) {
+                    console.log(`  ⚠️ Error: ${error.message}`);
+                }
+            }
+        }
+    }
+
+    console.log('\n\n✅ ==========================================');
+    console.log('✅ PRUEBA COMPLETADA');
+    console.log('✅ ==========================================\n');
+    console.log('💡 Revisa los objetos guardados:');
+    console.log('   - window.availableFields: Campos disponibles');
+    console.log('   - window.customFieldsValues: Valores (si se encontraron)');
+    console.log('   - window.contactData: Datos del contacto (si se encontraron)');
+})();
+
