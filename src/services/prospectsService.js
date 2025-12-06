@@ -329,7 +329,7 @@ class ProspectsService {
                 throw new Error('AirtableService no disponible');
             }
 
-            // Verificar si el prospecto ya existe por chat_id
+            // Verificar si el prospecto ya existe por chat_id ANTES de crear
             console.log(`🔍 Verificando si prospecto existe para chat_id: ${prospectData.chatId}`);
             const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
             
@@ -344,9 +344,14 @@ class ProspectsService {
             } else {
                 // Verificar si hubo un error en la búsqueda
                 if (existing.error) {
-                    console.warn(`⚠️ Error al buscar prospecto existente: ${existing.error}. Continuando con creación...`);
+                    console.error(`❌ Error al buscar prospecto existente: ${existing.error}. NO se creará nuevo prospecto para evitar duplicados.`);
+                    return {
+                        success: false,
+                        error: `Error al verificar duplicados: ${existing.error}`,
+                        alreadyExists: false
+                    };
                 } else {
-                    console.log('➕ Creando nuevo prospecto (no existe en Airtable)');
+                    console.log(`➕ Creando nuevo prospecto (no existe en Airtable para chat_id: ${prospectData.chatId})`);
                 }
                 
                 // Crear nuevo prospecto solo si no existe
