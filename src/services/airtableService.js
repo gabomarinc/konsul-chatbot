@@ -626,8 +626,8 @@ class AirtableService {
         try {
             console.log('🔍 Buscando prospecto por chat_id:', chatId);
             
-            // Intentar con ambos nombres de campo posibles (primero "chat_id", luego "A chat_id" como fallback)
-            const fieldNames = ['chat_id', 'A chat_id'];
+            // Intentar con ambos nombres de campo posibles (primero "A chat_id" que es el real en Airtable, luego "chat_id" como fallback)
+            const fieldNames = ['A chat_id', 'chat_id'];
             let response = null;
             let data = null;
             

@@ -329,38 +329,62 @@ class ProspectsService {
                 throw new Error('AirtableService no disponible');
             }
 
-            // Verificar si el prospecto ya existe por chat_id ANTES de crear
-            console.log(`🔍 Verificando si prospecto existe para chat_id: ${prospectData.chatId}`);
-            const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
-            
-            if (existing.success && existing.prospect) {
-                // Prospecto ya existe - NO crear duplicado
-                console.log(`✅ Prospecto ya existe (ID: ${existing.prospect.id}, nombre: ${existing.prospect.nombre}), saltando creación para evitar duplicado`);
-                return {
-                    success: true,
-                    prospect: existing.prospect,
-                    alreadyExists: true
-                };
-            } else {
-                // Verificar si hubo un error en la búsqueda
-                if (existing.error) {
-                    console.error(`❌ Error al buscar prospecto existente: ${existing.error}. NO se creará nuevo prospecto para evitar duplicados.`);
+            // Evitar condiciones de carrera: si ya se está guardando este chat_id, esperar
+            if (this.savingProspects.has(prospectData.chatId)) {
+                console.log(`⏳ Ya se está guardando este prospecto (chat_id: ${prospectData.chatId}), esperando...`);
+                // Esperar un poco y verificar nuevamente
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
+                if (existing.success && existing.prospect) {
+                    console.log(`✅ Prospecto ya fue creado por otro proceso, usando el existente`);
                     return {
-                        success: false,
-                        error: `Error al verificar duplicados: ${existing.error}`,
-                        alreadyExists: false
+                        success: true,
+                        prospect: existing.prospect,
+                        alreadyExists: true
+                    };
+                }
+            }
+            
+            // Marcar que estamos guardando este chat_id
+            this.savingProspects.add(prospectData.chatId);
+            
+            try {
+                // Verificar si el prospecto ya existe por chat_id ANTES de crear
+                console.log(`🔍 Verificando si prospecto existe para chat_id: ${prospectData.chatId}`);
+                const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
+                
+                if (existing.success && existing.prospect) {
+                    // Prospecto ya existe - NO crear duplicado
+                    console.log(`✅ Prospecto ya existe (ID: ${existing.prospect.id}, nombre: ${existing.prospect.nombre}), saltando creación para evitar duplicado`);
+                    return {
+                        success: true,
+                        prospect: existing.prospect,
+                        alreadyExists: true
                     };
                 } else {
-                    console.log(`➕ Creando nuevo prospecto (no existe en Airtable para chat_id: ${prospectData.chatId})`);
+                    // Verificar si hubo un error en la búsqueda
+                    if (existing.error) {
+                        console.error(`❌ Error al buscar prospecto existente: ${existing.error}. NO se creará nuevo prospecto para evitar duplicados.`);
+                        return {
+                            success: false,
+                            error: `Error al verificar duplicados: ${existing.error}`,
+                            alreadyExists: false
+                        };
+                    } else {
+                        console.log(`➕ Creando nuevo prospecto (no existe en Airtable para chat_id: ${prospectData.chatId})`);
+                    }
+                    
+                    // Crear nuevo prospecto solo si no existe
+                    const result = await this.airtableService.createProspect(prospectData);
+                    if (result.success) {
+                        return { ...result, alreadyExists: false };
+                    } else {
+                        return result;
+                    }
                 }
-                
-                // Crear nuevo prospecto solo si no existe
-                const result = await this.airtableService.createProspect(prospectData);
-                if (result.success) {
-                    return { ...result, alreadyExists: false };
-                } else {
-                    return result;
-                }
+            } finally {
+                // Siempre remover el chat_id del set, incluso si hay error
+                this.savingProspects.delete(prospectData.chatId);
             }
         } catch (error) {
             console.error('❌ Error guardando prospecto:', error);
