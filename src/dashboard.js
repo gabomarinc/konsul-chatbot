@@ -1529,8 +1529,8 @@ class ChatbotDashboard {
                                 const agentCredits = creditsResult.data.total || 0;
                                 totalCreditsConsumed += agentCredits;
                                 console.log(`✅ Agente ${agent.name}: ${agentCredits} créditos consumidos`);
-                            }
-                        } catch (error) {
+            }
+        } catch (error) {
                             console.warn(`⚠️ No se pudieron obtener créditos para agente ${agent.name}:`, error.message);
                         }
                     }
@@ -1545,7 +1545,7 @@ class ChatbotDashboard {
             
         } catch (error) {
             console.error('❌ Error calculando tokens consumidos:', error);
-            return 0;
+        return 0;
         }
     }
 
@@ -5576,7 +5576,7 @@ class ChatbotDashboard {
 
         console.log('🎯 Event listeners del modal configurados correctamente');
     }
-    
+
     // Función de utilidad para limpiar toda la cache
     clearAllCache() {
         console.log('🧹 Limpiando toda la cache del dashboard...');
@@ -5639,8 +5639,38 @@ class ChatbotDashboard {
             const result = await window.prospectsService.getAllProspects();
             
             if (result.success) {
-                this.renderProspects(result.data || []);
-                console.log(`✅ ${result.data.length} prospectos cargados`);
+                // Filtrar prospectos inválidos (sin nombre válido o sin chat_id)
+                let validProspects = (result.data || []).filter(prospect => {
+                    const hasValidName = prospect.nombre && 
+                                        prospect.nombre !== 'Sin nombre' && 
+                                        prospect.nombre.trim().length > 0;
+                    const hasChatId = prospect.chatId && prospect.chatId.trim().length > 0;
+                    return hasValidName && hasChatId;
+                });
+                
+                // Eliminar duplicados por chat_id (mantener el más reciente)
+                const uniqueProspects = [];
+                const seenChatIds = new Set();
+                
+                // Ordenar por fecha de extracción (más reciente primero)
+                validProspects.sort((a, b) => {
+                    const dateA = new Date(a.fechaExtraccion || a.createdTime || 0);
+                    const dateB = new Date(b.fechaExtraccion || b.createdTime || 0);
+                    return dateB - dateA;
+                });
+                
+                // Mantener solo el primero de cada chat_id
+                validProspects.forEach(prospect => {
+                    if (!seenChatIds.has(prospect.chatId)) {
+                        seenChatIds.add(prospect.chatId);
+                        uniqueProspects.push(prospect);
+                    } else {
+                        console.log(`⚠️ Duplicado encontrado y eliminado: ${prospect.nombre} (chat: ${prospect.chatId})`);
+                    }
+                });
+                
+                console.log(`✅ ${uniqueProspects.length} prospectos únicos de ${result.data.length} totales (eliminados ${result.data.length - uniqueProspects.length} duplicados/inválidos)`);
+                this.renderProspects(uniqueProspects);
             } else {
                 throw new Error(result.error || 'Error cargando prospectos');
             }
@@ -5791,8 +5821,13 @@ class ChatbotDashboard {
                     console.log(`💾 Guardando prospecto: ${prospectData.nombre} (chat: ${prospectData.chatId})`);
                     const saveResult = await window.prospectsService.saveProspect(prospectData);
                     if (saveResult.success) {
-                        savedCount++;
-                        console.log(`✅ Prospecto guardado: ${prospectData.nombre}`);
+                        // Solo contar como guardado si es nuevo (no duplicado)
+                        if (!saveResult.alreadyExists) {
+                            savedCount++;
+                            console.log(`✅ Prospecto guardado: ${prospectData.nombre}`);
+                        } else {
+                            console.log(`⏭️ Prospecto ya existe, omitido: ${prospectData.nombre}`);
+                        }
                     } else {
                         errorCount++;
                         const errorMsg = `Chat ${prospectData.chatId}: ${saveResult.error}`;
@@ -5856,10 +5891,15 @@ class ChatbotDashboard {
         modal.innerHTML = `
             <div class="modal-content modal-large">
                 <div class="modal-header">
-                    <h2>
-                        <i class="fas fa-user"></i>
-                        Ver Prospecto: ${prospect.nombre || 'Sin nombre'}
-                    </h2>
+                    <div class="modal-header-content">
+                        <div class="prospect-avatar-large">
+                            ${this.getUserInitials(prospect.nombre || 'Sin nombre')}
+                        </div>
+                        <div class="modal-header-info">
+                            <h2>${prospect.nombre || 'Sin nombre'}</h2>
+                            <p class="prospect-subtitle">Prospecto</p>
+                        </div>
+                    </div>
                     <button class="modal-close" id="closeProspectModal">
                         <i class="fas fa-times"></i>
                     </button>
@@ -5867,32 +5907,50 @@ class ChatbotDashboard {
 
                 <div class="modal-body">
                     <div class="prospect-info-section">
-                        <h3><i class="fas fa-info-circle"></i> Información</h3>
+                        <h3><i class="fas fa-info-circle"></i> Información del Prospecto</h3>
                         <div class="info-grid">
                             <div class="info-item">
-                                <label>Nombre:</label>
+                                <label><i class="fas fa-user"></i> Nombre:</label>
                                 <span>${prospect.nombre || 'N/A'}</span>
                             </div>
+                            ${prospect.telefono && prospect.telefono !== 'N/A' ? `
                             <div class="info-item">
-                                <label>Teléfono:</label>
-                                <span>${prospect.telefono || 'N/A'}</span>
+                                <label><i class="fas fa-phone"></i> Teléfono:</label>
+                                <span>${prospect.telefono}</span>
                             </div>
+                            ` : ''}
+                            ${prospect.canal && prospect.canal !== 'N/A' ? `
                             <div class="info-item">
-                                <label>Canal:</label>
-                                <span>${prospect.canal || 'N/A'}</span>
+                                <label><i class="fas fa-comments"></i> Canal:</label>
+                                <span>${prospect.canal}</span>
                             </div>
+                            ` : ''}
                             <div class="info-item">
-                                <label>Estado:</label>
+                                <label><i class="fas fa-tag"></i> Estado:</label>
                                 <span class="prospect-status status-${(prospect.estado || 'Nuevo').toLowerCase()}">${prospect.estado || 'Nuevo'}</span>
                             </div>
+                            ${prospect.fechaExtraccion ? `
                             <div class="info-item">
-                                <label>Fecha Extracción:</label>
-                                <span>${prospect.fechaExtraccion ? new Date(prospect.fechaExtraccion).toLocaleString('es-ES') : 'N/A'}</span>
+                                <label><i class="fas fa-calendar"></i> Fecha Extracción:</label>
+                                <span>${new Date(prospect.fechaExtraccion).toLocaleDateString('es-ES', { 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                })}</span>
                             </div>
+                            ` : ''}
                             ${prospect.fechaUltimoMensaje ? `
                             <div class="info-item">
-                                <label>Último Mensaje:</label>
-                                <span>${new Date(prospect.fechaUltimoMensaje).toLocaleString('es-ES')}</span>
+                                <label><i class="fas fa-clock"></i> Último Mensaje:</label>
+                                <span>${new Date(prospect.fechaUltimoMensaje).toLocaleDateString('es-ES', { 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                })}</span>
                             </div>
                             ` : ''}
                         </div>

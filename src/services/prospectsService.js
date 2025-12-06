@@ -151,8 +151,14 @@ class ProspectsService {
 
             if (!messages || messages.length === 0) {
                 console.log('⚠️ No hay mensajes para analizar en el chat', chat.id);
-                // Intentar crear prospecto con datos del chat aunque no haya mensajes
-                return this.createProspectFromChatData(chat, []);
+                // Solo crear prospecto si hay un nombre válido en el chat
+                const chatName = chat.name || chat.userName || chat.whatsappPhone;
+                if (chatName && chatName !== 'Sin nombre' && chatName.trim().length > 0) {
+                    return this.createProspectFromChatData(chat, [], chatName);
+                } else {
+                    console.log('⚠️ No hay nombre válido en el chat, saltando');
+                    return null;
+                }
             }
 
             // Extraer nombre
@@ -161,11 +167,16 @@ class ProspectsService {
             // Si no se puede extraer nombre, usar datos del chat como fallback
             if (!nombre) {
                 console.log('⚠️ No se pudo extraer nombre de mensajes, usando datos del chat como fallback');
-                const fallbackName = chat.name || chat.userName || chat.whatsappPhone || 'Sin nombre';
-                console.log(`📝 Usando nombre del chat: ${fallbackName}`);
+                const fallbackName = chat.name || chat.userName || chat.whatsappPhone;
                 
-                // Continuar con el análisis aunque no haya nombre extraído
-                return this.createProspectFromChatData(chat, messages, fallbackName);
+                // Solo crear prospecto si hay un nombre válido (no "Sin nombre")
+                if (fallbackName && fallbackName !== 'Sin nombre' && fallbackName.trim().length > 0) {
+                    console.log(`📝 Usando nombre del chat: ${fallbackName}`);
+                    return this.createProspectFromChatData(chat, messages, fallbackName);
+                } else {
+                    console.log('⚠️ No hay nombre válido disponible, saltando este chat');
+                    return null; // No crear prospecto sin nombre válido
+                }
             }
 
             // Extraer imágenes
@@ -263,27 +274,21 @@ class ProspectsService {
                 throw new Error('AirtableService no disponible');
             }
 
-            // Verificar si el prospecto ya existe
+            // Verificar si el prospecto ya existe por chat_id
+            console.log(`🔍 Verificando si prospecto existe para chat_id: ${prospectData.chatId}`);
             const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
             
             if (existing.success && existing.prospect) {
-                // Actualizar prospecto existente
-                console.log('📝 Actualizando prospecto existente:', existing.prospect.id);
-                
-                // Combinar datos existentes con nuevos
-                const updateData = {
-                    ...prospectData,
-                    imagenesUrls: [...(existing.prospect.imagenesUrls || []), ...(prospectData.imagenesUrls || [])].filter((v, i, a) => a.indexOf(v) === i), // Eliminar duplicados
-                    documentosUrls: [...(existing.prospect.documentosUrls || []), ...(prospectData.documentosUrls || [])].filter((v, i, a) => 
-                        a.findIndex(d => d.url === v.url) === i
-                    ) // Eliminar duplicados por URL
+                // Prospecto ya existe - NO crear duplicado
+                console.log(`✅ Prospecto ya existe (ID: ${existing.prospect.id}), saltando creación para evitar duplicado`);
+                return {
+                    success: true,
+                    prospect: existing.prospect,
+                    alreadyExists: true
                 };
-
-                const result = await this.airtableService.updateProspect(existing.prospect.id, updateData);
-                return result;
             } else {
-                // Crear nuevo prospecto
-                console.log('➕ Creando nuevo prospecto');
+                // Crear nuevo prospecto solo si no existe
+                console.log('➕ Creando nuevo prospecto (no existe en Airtable)');
                 const result = await this.airtableService.createProspect(prospectData);
                 return result;
             }
