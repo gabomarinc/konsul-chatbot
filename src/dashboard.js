@@ -6078,16 +6078,22 @@ class ChatbotDashboard {
                     <div class="prospect-images-section">
                         <h3><i class="fas fa-images"></i> Imágenes (${imagenes.length})</h3>
                         <div class="images-gallery" id="prospectImagesGallery">
-                            ${imagenes.map((imgUrl, index) => `
+                            ${imagenes.map((imgUrl, index) => {
+                                // Asegurar que imgUrl sea un string
+                                const url = typeof imgUrl === 'string' ? imgUrl : (imgUrl?.url || imgUrl);
+                                if (!url) return '';
+                                return `
                                 <div class="gallery-item" data-image-index="${index}">
-                                    <img src="${imgUrl}" alt="Imagen ${index + 1}" loading="lazy">
+                                    <img src="${url}" alt="Imagen ${index + 1}" loading="lazy" 
+                                         onerror="console.error('Error cargando imagen del prospecto:', this.src)">
                                     <div class="gallery-overlay">
-                                        <button class="btn btn-sm btn-primary view-image-btn" data-image-url="${imgUrl}">
+                                        <button class="btn btn-sm btn-primary view-image-btn" data-image-url="${url}">
                                             <i class="fas fa-expand"></i> Ampliar
                                         </button>
                                     </div>
                                 </div>
-                            `).join('')}
+                                `;
+                            }).filter(html => html).join('')}
                         </div>
                     </div>
                     ` : ''}
