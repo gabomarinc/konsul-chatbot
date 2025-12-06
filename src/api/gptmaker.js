@@ -1569,4 +1569,86 @@ class GPTMakerAPI {
             };
         }
     }
+
+    // Get custom fields
+    async getCustomFields(workspaceId = null, options = {}) {
+        const cacheKey = `custom-fields-${workspaceId || 'default'}`;
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        try {
+            // Si no se proporciona workspaceId, obtenerlo automáticamente
+            let targetWorkspaceId = workspaceId;
+            let workspaceName = null;
+
+            if (!targetWorkspaceId) {
+                console.log('🔍 Obteniendo workspace ID para campos personalizados...');
+                const workspaces = await this.getWorkspaces();
+                
+                if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
+                    targetWorkspaceId = workspaces.data[0].id;
+                    workspaceName = workspaces.data[0].name;
+                    console.log(`📋 Usando workspace real: ${workspaceName} (${targetWorkspaceId})`);
+                } else {
+                    // Fallback al token si no hay workspaces
+                    const tokenInfo = this.parseToken();
+                    targetWorkspaceId = tokenInfo?.tenant || tokenInfo?.id;
+                    workspaceName = 'Workspace del Token';
+                    console.log(`📋 Fallback al workspace del token: ${targetWorkspaceId}`);
+                }
+            }
+
+            if (!targetWorkspaceId) {
+                throw new Error('No se pudo obtener el workspace ID');
+            }
+
+            console.log(`📋 Obteniendo campos personalizados del workspace: ${targetWorkspaceId}`);
+
+            // Construir query string con parámetros opcionales
+            const queryParams = [];
+            if (options.page) queryParams.push(`page=${options.page}`);
+            if (options.pageSize) queryParams.push(`pageSize=${options.pageSize}`);
+            if (options.query) queryParams.push(`query=${encodeURIComponent(options.query)}`);
+
+            const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+            const url = `/v2/custom-field/workspace/${targetWorkspaceId}${queryString}`;
+
+            const result = await this.request(url);
+
+            if (result.success && result.data) {
+                // La respuesta puede ser un array directo o un objeto con una propiedad data
+                const fields = Array.isArray(result.data) ? result.data : (result.data.data || result.data.fields || []);
+                
+                console.log(`✅ ${fields.length} campos personalizados obtenidos`);
+                
+                // Log detallado de cada campo
+                fields.forEach((field, index) => {
+                    console.log(`  ${index + 1}. ${field.name} (${field.jsonName || 'N/A'}) - Tipo: ${field.type || 'N/A'}`);
+                });
+
+                const response = {
+                    success: true,
+                    data: fields,
+                    workspaceId: targetWorkspaceId,
+                    workspaceName: workspaceName,
+                    source: 'api'
+                };
+
+                // Guardar en caché
+                this.saveToCache(cacheKey, response);
+
+                return response;
+            } else {
+                throw new Error('No se pudieron obtener campos personalizados');
+            }
+        } catch (error) {
+            console.error('❌ Error obteniendo campos personalizados:', error);
+            return {
+                success: false,
+                error: error.message,
+                data: [],
+                source: 'error'
+            };
+        }
+    }
 }
