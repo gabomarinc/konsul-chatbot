@@ -2715,7 +2715,7 @@ class ChatbotDashboard {
             }
             
             // Manejar diferentes tipos de mensajes según la documentación
-            // Detectar imágenes - buscar en múltiples campos posibles (igual que en prospectsService)
+            // Detectar imágenes - buscar en TODOS los campos posibles
             const imageUrl = message.imageUrl || 
                            message.image || 
                            message.mediaUrl || 
@@ -2724,31 +2724,62 @@ class ChatbotDashboard {
                            message.attachment?.url || 
                            (message.media && typeof message.media === 'string' ? message.media : null) ||
                            message.url ||
-                           message.fileUrl;
+                           message.fileUrl ||
+                           message.file?.url ||
+                           message.photo ||
+                           message.photoUrl ||
+                           (message.content && typeof message.content === 'string' && message.content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i)?.[0]);
             
             // Verificar si es una imagen
-            const isImage = message.type === 'image' || 
-                          (imageUrl && (
+            const isImageType = message.type === 'image' || message.type === 'photo';
+            const isImageUrl = imageUrl && (
                               /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(imageUrl) ||
                               imageUrl.includes('image') ||
-                              imageUrl.startsWith('data:image')
-                          ));
+                              imageUrl.includes('photo') ||
+                              imageUrl.startsWith('data:image') ||
+                              imageUrl.startsWith('blob:')
+                          );
+            const isImage = isImageType || isImageUrl;
+            
+            // Log detallado para mensajes del usuario con posibles imágenes
+            if (isUser && (imageUrl || isImageType || message.attachments || message.media || JSON.stringify(message).toLowerCase().includes('image'))) {
+                console.log(`👤🔍 Mensaje del USUARIO ${message.id} - Buscando imagen:`, {
+                    type: message.type,
+                    imageUrl: message.imageUrl,
+                    image: message.image,
+                    mediaUrl: message.mediaUrl,
+                    attachmentUrl: message.attachmentUrl,
+                    url: message.url,
+                    fileUrl: message.fileUrl,
+                    attachments: message.attachments,
+                    media: message.media,
+                    photo: message.photo,
+                    photoUrl: message.photoUrl,
+                    text: message.text?.substring(0, 100),
+                    allFields: Object.keys(message),
+                    fullMessage: message
+                });
+            }
             
             if (isImage && imageUrl) {
-                console.log(`🖼️ Imagen detectada en mensaje ${message.id} (${isUser ? 'USUARIO' : 'AGENTE'}):`, {
-                    type: message.type,
-                    role: message.role,
-                    url: imageUrl,
-                    isUser: isUser,
-                    fields: Object.keys(message)
-                });
-                
-                messageContent += `<div class="message-image">
-                    <img src="${imageUrl}" alt="Imagen enviada" 
-                         style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer; display: block;"
-                         onerror="console.error('Error cargando imagen:', this.src)"
-                         onclick="window.open(this.src, '_blank')">
-                </div>`;
+                // Filtrar URLs de ejemplo/placeholder
+                if (imageUrl.includes('example.com') || imageUrl.includes('placeholder')) {
+                    console.warn(`⚠️ URL de imagen de ejemplo ignorada: ${imageUrl}`);
+                } else {
+                    console.log(`🖼️ ✅ Imagen detectada en mensaje ${message.id} (${isUser ? 'USUARIO' : 'AGENTE'}):`, {
+                        type: message.type,
+                        role: message.role,
+                        url: imageUrl,
+                        isUser: isUser
+                    });
+                    
+                    messageContent += `<div class="message-image">
+                        <img src="${imageUrl}" alt="Imagen enviada" 
+                             style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer; display: block;"
+                             onerror="console.error('Error cargando imagen:', this.src)"
+                             onclick="window.open(this.src, '_blank')">
+                    </div>`;
+                }
             }
             
             // Detectar imágenes en attachments o media array
