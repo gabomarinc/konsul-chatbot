@@ -6024,17 +6024,37 @@ class ChatbotDashboard {
         const goToChatBtn = document.getElementById('goToChatFromModal');
 
         const closeModal = () => {
-            if (document.body.contains(modal)) {
-                document.body.removeChild(modal);
+            if (modal && document.body.contains(modal)) {
+                modal.style.opacity = '0';
+                modal.style.transition = 'opacity 0.2s ease';
+                setTimeout(() => {
+                    if (document.body.contains(modal)) {
+                        document.body.removeChild(modal);
+                    }
+                }, 200);
             }
         };
 
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
         if (closeBtn2) closeBtn2.addEventListener('click', closeModal);
         if (goToChatBtn) {
-            goToChatBtn.addEventListener('click', async () => {
-                await this.navigateToChat(prospect.chatId);
+            goToChatBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Cerrar el modal primero
                 closeModal();
+                
+                // Pequeño delay para que el modal se cierre visualmente
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Luego navegar al chat
+                try {
+                    await this.navigateToChat(prospect.chatId);
+                } catch (error) {
+                    console.error('Error navegando al chat:', error);
+                    // El modal ya está cerrado, así que no hay problema
+                }
             });
         }
 
