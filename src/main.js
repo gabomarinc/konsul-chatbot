@@ -98,6 +98,9 @@ function initializeDashboard() {
         
     } catch (error) {
         console.error('❌ Error inicializando dashboard:', error);
+        // Asegurar que el dashboard se muestre incluso con errores
+        // El routeGuard no debe redirigir si hay un error de inicialización
+        console.warn('⚠️ Continuando con dashboard en modo degradado');
     }
 }
 

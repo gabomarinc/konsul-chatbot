@@ -55,20 +55,33 @@ class ChatbotDashboard {
     }
 
     async init() {
-        this.setupEventListeners();
-        this.initializeAPI();
-        // Cargar token desde Airtable antes de cargar datos
-        await this.loadTokenFromAirtable();
-        await this.loadRealData();
-        this.loadTheme();
-        this.loadBrandSettings();
-        this.setupMobileMenu();
-        this.setupChatsManagement();
-        this.setupAgentsManagement();
-        this.setupAttendancesManagement();
-        this.setupProspectsManagement();
-        this.setupHeaderNotifications();
-        this.setupNotificationsAndPolling();
+        try {
+            this.setupEventListeners();
+            this.initializeAPI();
+            // Cargar token desde Airtable antes de cargar datos
+            await this.loadTokenFromAirtable();
+            await this.loadRealData();
+            this.loadTheme();
+            this.loadBrandSettings();
+            this.setupMobileMenu();
+            this.setupChatsManagement();
+            this.setupAgentsManagement();
+            this.setupAttendancesManagement();
+            this.setupProspectsManagement();
+            this.setupHeaderNotifications();
+            this.setupNotificationsAndPolling();
+        } catch (error) {
+            console.error('❌ Error en inicialización del dashboard:', error);
+            // Asegurar que el dashboard se muestre incluso con errores
+            // Continuar con inicialización básica
+            try {
+                this.loadTheme();
+                this.loadBrandSettings();
+                this.setupMobileMenu();
+            } catch (initError) {
+                console.error('❌ Error en inicialización básica:', initError);
+            }
+        }
     }
 
     /**
@@ -220,7 +233,23 @@ class ChatbotDashboard {
 
         } catch (error) {
             console.error('❌ Error cargando datos reales:', error);
-            this.showNotification('Error al cargar los datos', 'error');
+            // No bloquear el dashboard - mostrar con datos vacíos
+            this.dashboardData = {
+                chats: [],
+                agents: [],
+                team: [],
+                stats: this.calculateStats([], [], []),
+                apiHealth: false
+            };
+            
+            // Actualizar UI con datos vacíos para que el dashboard se muestre
+            this.updateOverviewStats();
+            this.updateChatsList();
+            this.updateAgentsList();
+            this.updateTeamList();
+            
+            // Mostrar notificación pero no bloquear
+            this.showNotification('Algunos datos no se pudieron cargar. El dashboard está disponible con funcionalidad limitada.', 'warning');
         }
     }
 
