@@ -57,6 +57,8 @@ class ChatbotDashboard {
     async init() {
         this.setupEventListeners();
         this.initializeAPI();
+        // Cargar token desde Airtable antes de cargar datos
+        await this.loadTokenFromAirtable();
         await this.loadRealData();
         this.loadTheme();
         this.loadBrandSettings();
@@ -67,6 +69,59 @@ class ChatbotDashboard {
         this.setupProspectsManagement();
         this.setupHeaderNotifications();
         this.setupNotificationsAndPolling();
+    }
+
+    /**
+     * Carga el token de API desde Airtable al iniciar
+     * Esto asegura que tanto Preview como Production usen el mismo token
+     */
+    async loadTokenFromAirtable() {
+        try {
+            const currentUser = this.getCurrentUser();
+            if (!currentUser) {
+                console.log('ℹ️ No hay usuario autenticado, saltando carga de token desde Airtable');
+                return;
+            }
+
+            if (!window.airtableService || !window.authService || !window.authService.useAirtable) {
+                console.log('ℹ️ Airtable no está configurado, usando token de localStorage si existe');
+                return;
+            }
+
+            console.log('🗄️ Cargando token de API desde Airtable...');
+            const userResult = await window.airtableService.getUserByEmail(currentUser.email);
+            
+            if (userResult.success && userResult.user && userResult.user.token_api) {
+                const token = userResult.user.token_api;
+                
+                // Guardar en localStorage para que la API lo use
+                localStorage.setItem('gptmaker_token', token);
+                localStorage.setItem('apiToken', token);
+                
+                // Actualizar configuración global
+                if (window.gptmakerConfig) {
+                    window.gptmakerConfig.setToken(token);
+                }
+                if (window.GPTMAKER_CONFIG) {
+                    window.GPTMAKER_CONFIG.token = token;
+                }
+                
+                // Actualizar la instancia de API si ya existe
+                if (this.api) {
+                    this.api.setToken(token);
+                }
+                if (this.dataService && this.dataService.api) {
+                    this.dataService.api.setToken(token);
+                }
+                
+                console.log('✅ Token de API cargado desde Airtable y sincronizado');
+            } else {
+                console.log('ℹ️ No se encontró token en Airtable para este usuario');
+            }
+        } catch (error) {
+            console.warn('⚠️ Error cargando token desde Airtable:', error.message);
+            console.log('ℹ️ Continuando con token de localStorage si existe');
+        }
     }
 
     async initializeAPI() {
