@@ -3005,6 +3005,22 @@ class ChatbotDashboard {
         const chatDetails = document.getElementById('chatDetails');
         if (!chatDetails) return;
 
+        // LIMPIAR COMPLETAMENTE antes de actualizar para evitar superposiciones
+        console.log('🧹 Limpiando chatDetails antes de actualizar...');
+        
+        // Ocultar welcome y loading
+        const chatWelcome = document.querySelector('.chat-welcome');
+        if (chatWelcome) {
+            chatWelcome.style.display = 'none';
+        }
+        const chatLoading = document.getElementById('chatLoading');
+        if (chatLoading) {
+            chatLoading.style.display = 'none';
+        }
+        
+        // Limpiar completamente el contenido
+        chatDetails.innerHTML = '';
+
         // Verificar si hay datos originales del cliente guardados (para chats asumidos)
         const savedClientNames = JSON.parse(localStorage.getItem('clientOriginalNames') || '{}');
         const savedClientData = savedClientNames[chat.id];
@@ -3027,10 +3043,7 @@ class ChatbotDashboard {
         const agentName = chat.agentName || 'Agente';
         const chatType = chat.type || 'whatsapp';
 
-        // Preservar elementos de envío de mensajes
-        const messageInputContainer = document.querySelector('.message-input-container');
-        const assumeBtn = document.querySelector('.assume-chat-btn');
-
+        // Crear nuevo contenido limpio
         chatDetails.innerHTML = `
             <div class="chat-header-details">
                 <div class="chat-avatar">${this.getUserInitials(userName)}</div>
@@ -3046,13 +3059,9 @@ class ChatbotDashboard {
             </div>
         `;
 
-        // Restaurar elementos de envío de mensajes si no existen
-        if (!document.getElementById('messageInput')) {
-            this.setupMessageSending();
-        }
-        if (!document.querySelector('.assume-chat-btn')) {
-            this.setupChatAssumption();
-        }
+        // Restaurar elementos de envío de mensajes
+        this.setupMessageSending();
+        this.setupChatAssumption();
         
         // Configurar controles de audio después de renderizar
         setTimeout(() => {
