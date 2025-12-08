@@ -2799,7 +2799,7 @@ class ChatbotDashboard {
     }
 
     /**
-     * Renderiza la lista de campos personalizados con checkboxes para solicitar
+     * Renderiza la lista de campos personalizados con botones grandes para solicitar
      */
     renderCustomFieldsWithCheckboxes(container, availableFields, savedRequestedFields, chatId) {
         if (!container) return;
@@ -2814,42 +2814,62 @@ class ChatbotDashboard {
             return;
         }
 
-        // Crear HTML con checkboxes
+        // Crear HTML con botones grandes
         const fieldsHTML = availableFields.map((field, index) => {
             const fieldId = field.id || field.jsonName || field.name;
             const fieldName = field.name || field.jsonName || 'Campo sin nombre';
-            const isChecked = savedRequestedFields[fieldId] === true || savedRequestedFields[fieldName] === true;
-            const checkboxId = `customFieldCheckbox_${chatId}_${index}`;
+            const isSelected = savedRequestedFields[fieldId] === true || savedRequestedFields[fieldName] === true;
+            const buttonId = `customFieldButton_${chatId}_${index}`;
 
             return `
-                <div class="custom-field-checkbox-item">
-                    <label class="custom-field-checkbox-label" for="${checkboxId}">
-                        <input 
-                            type="checkbox" 
-                            id="${checkboxId}" 
-                            class="custom-field-checkbox" 
-                            data-field-id="${fieldId}"
-                            data-field-name="${this.escapeHtml(fieldName)}"
-                            ${isChecked ? 'checked' : ''}
-                        >
-                        <span class="checkbox-custom"></span>
-                        <span class="checkbox-label-text">${this.escapeHtml(fieldName)}</span>
-                    </label>
-                </div>
+                <button 
+                    type="button"
+                    id="${buttonId}"
+                    class="custom-field-button ${isSelected ? 'selected' : ''}"
+                    data-field-id="${fieldId}"
+                    data-field-name="${this.escapeHtml(fieldName)}"
+                >
+                    <div class="custom-field-button-content">
+                        <div class="custom-field-button-icon">
+                            <i class="fas ${isSelected ? 'fa-check-circle' : 'fa-circle'}"></i>
+                        </div>
+                        <div class="custom-field-button-text">
+                            ${this.escapeHtml(fieldName)}
+                        </div>
+                    </div>
+                </button>
             `;
         }).join('');
 
         container.innerHTML = `
-            <div class="custom-fields-checkboxes-container">
-                <div class="custom-fields-checkboxes-list">
+            <div class="custom-fields-buttons-container">
+                <div class="custom-fields-buttons-grid">
                     ${fieldsHTML}
                 </div>
-                <button class="btn btn-primary btn-sm save-custom-fields-btn" data-chat-id="${chatId}">
-                    <i class="fas fa-save"></i>
-                    Guardar Campos Solicitados
-                </button>
+                <div class="custom-fields-actions">
+                    <button class="btn btn-primary btn-lg save-custom-fields-btn" data-chat-id="${chatId}">
+                        <i class="fas fa-save"></i>
+                        Guardar Campos Solicitados
+                    </button>
+                </div>
             </div>
         `;
+
+        // Agregar event listeners a los botones
+        container.querySelectorAll('.custom-field-button').forEach(button => {
+            button.addEventListener('click', () => {
+                // Toggle selección
+                button.classList.toggle('selected');
+                const icon = button.querySelector('.custom-field-button-icon i');
+                if (button.classList.contains('selected')) {
+                    icon.classList.remove('fa-circle');
+                    icon.classList.add('fa-check-circle');
+                } else {
+                    icon.classList.remove('fa-check-circle');
+                    icon.classList.add('fa-circle');
+                }
+            });
+        });
 
         // Agregar event listener al botón de guardar
         const saveBtn = container.querySelector('.save-custom-fields-btn');
@@ -2858,14 +2878,6 @@ class ChatbotDashboard {
                 await this.saveRequestedCustomFields(chatId, container);
             });
         }
-
-        // Agregar event listeners a los checkboxes para auto-guardar opcional (comentado por ahora)
-        // container.querySelectorAll('.custom-field-checkbox').forEach(checkbox => {
-        //     checkbox.addEventListener('change', () => {
-        //         // Auto-guardar cuando cambie un checkbox
-        //         this.saveRequestedCustomFields(chatId, container);
-        //     });
-        // });
     }
 
     /**
@@ -2878,21 +2890,21 @@ class ChatbotDashboard {
                 return;
             }
 
-            // Obtener estado de todos los checkboxes
-            const checkboxes = container.querySelectorAll('.custom-field-checkbox');
+            // Obtener estado de todos los botones
+            const buttons = container.querySelectorAll('.custom-field-button');
             const requestedFields = {};
 
-            checkboxes.forEach(checkbox => {
-                const fieldId = checkbox.getAttribute('data-field-id');
-                const fieldName = checkbox.getAttribute('data-field-name');
-                const isChecked = checkbox.checked;
+            buttons.forEach(button => {
+                const fieldId = button.getAttribute('data-field-id');
+                const fieldName = button.getAttribute('data-field-name');
+                const isSelected = button.classList.contains('selected');
                 
                 // Guardar con ambos ID y nombre para flexibilidad
                 if (fieldId) {
-                    requestedFields[fieldId] = isChecked;
+                    requestedFields[fieldId] = isSelected;
                 }
                 if (fieldName) {
-                    requestedFields[fieldName] = isChecked;
+                    requestedFields[fieldName] = isSelected;
                 }
             });
 
