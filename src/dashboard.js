@@ -2386,7 +2386,7 @@ class ChatbotDashboard {
     }
 
     /**
-     * Carga y muestra los campos personalizados de GPTMaker para un prospecto
+     * Carga y muestra los campos personalizados de GPTMaker para un prospecto usando su chatId
      */
     async loadProspectCustomFields(chatId, containerId) {
         try {
@@ -2396,21 +2396,12 @@ class ChatbotDashboard {
                 return;
             }
 
-            console.log(`📋 Cargando campos personalizados para chat: ${chatId}`);
-
-            // Buscar el chat para obtener el recipient (contactId)
-            let chat = this.dashboardData.chats?.find(c => c.id === chatId);
-            if (!chat) {
-                // Intentar cargar el chat si no está disponible
-                console.log('⚠️ Chat no encontrado en datos, intentando cargar...');
-                await this.loadRealData();
-                const chatAfterLoad = this.dashboardData.chats?.find(c => c.id === chatId);
-                if (!chatAfterLoad) {
-                    container.innerHTML = '<p class="no-custom-fields">No se encontró información del chat</p>';
-                    return;
-                }
-                chat = chatAfterLoad;
+            if (!chatId) {
+                container.innerHTML = '<p class="no-custom-fields">No se proporcionó un chatId válido</p>';
+                return;
             }
+
+            console.log(`📋 Cargando campos personalizados para chatId: ${chatId}`);
 
             // Obtener API
             const api = window.gptmakerAPI || this.api || (this.dataService && this.dataService.api);
@@ -2419,112 +2410,108 @@ class ChatbotDashboard {
                 return;
             }
 
-            // Obtener el nombre del prospecto desde el chat para buscar el contacto
-            const prospectName = (chat.name || chat.userName || '').toLowerCase().trim();
-            const contactId = chat.recipient || chat.userId || chatId;
-            console.log(`🔍 Buscando campos personalizados para: ${prospectName || 'prospecto sin nombre'}`);
-            console.log(`🔍 ContactId disponible: ${contactId || 'no disponible'}`);
+            // Buscar el chat para obtener el contactId
+            let chat = this.dashboardData.chats?.find(c => c.id === chatId);
+            if (!chat) {
+                // Intentar cargar el chat si no está disponible
+                console.log('⚠️ Chat no encontrado en datos, intentando cargar...');
+                await this.loadRealData();
+                chat = this.dashboardData.chats?.find(c => c.id === chatId);
+            }
+
+            // Obtener el contactId del chat
+            // El contactId puede estar en diferentes propiedades según la estructura de GPTMaker
+            const contactId = chat?.recipient || 
+                             chat?.userId || 
+                             chat?.contactId || 
+                             chat?.contact?.id ||
+                             chatId; // Usar chatId como fallback
+
+            console.log(`🔍 ContactId obtenido: ${contactId}`);
+            console.log(`📊 Estructura del chat:`, {
+                id: chat?.id,
+                recipient: chat?.recipient,
+                userId: chat?.userId,
+                contactId: chat?.contactId,
+                contact: chat?.contact
+            });
 
             // Obtener campos personalizados disponibles
             const fieldsResult = await api.getCustomFields();
             const availableFields = fieldsResult.success ? fieldsResult.data : [];
-            console.log('📊 Campos disponibles:', availableFields.length);
-            
-            // Obtener valores de campos personalizados buscando el contacto
+            console.log(`📊 ${availableFields.length} campos personalizados disponibles`);
+
+            // Obtener valores de campos personalizados del contacto usando el contactId
             let customFieldValues = {};
             
-            console.log('🔍 Obteniendo todos los contactos y buscando por nombre o ID...');
             try {
-                const contactsResult = await api.getAllContacts();
-                if (contactsResult.success && contactsResult.data && contactsResult.data.length > 0) {
-                    console.log(`📋 ${contactsResult.data.length} contactos obtenidos`);
-                    
-                    // Buscar contacto por nombre (comparación flexible) o por ID
-                    const matchingContact = contactsResult.data.find(c => {
-                        const contactName = (c.name || c.fullName || c.userName || (c.firstName + ' ' + c.lastName) || '').toLowerCase().trim();
-                        const searchName = prospectName;
-                        
-                        // Comparación por nombre (exacta, parcial, inversa)
-                        const nameMatches = searchName && contactName && (
-                            contactName === searchName || 
-                            contactName.includes(searchName) || 
-                            searchName.includes(contactName) ||
-                            contactName.split(' ')[0] === searchName.split(' ')[0] // Primer nombre
-                        );
-                        
-                        // También intentar por ID
-                        const idMatches = contactId && (
-                            c.id === contactId ||
+                console.log(`🔍 Obteniendo campos personalizados para contactId: ${contactId}`);
+                const valuesResult = await api.getContactCustomFields(contactId);
+                
+                if (valuesResult.success && valuesResult.data) {
+                    // Los datos pueden venir en diferentes formatos
+                    if (typeof valuesResult.data === 'object') {
+                        customFieldValues = valuesResult.data;
+                    } else if (Array.isArray(valuesResult.data)) {
+                        // Si viene como array, convertirlo a objeto
+                        valuesResult.data.forEach(item => {
+                            if (item.jsonName || item.name) {
+                                const key = item.jsonName || item.name;
+                                customFieldValues[key] = item.value || item;
+                            }
+                        });
+                    }
+                    console.log(`✅ Campos personalizados obtenidos:`, Object.keys(customFieldValues).length, 'campos');
+                } else {
+                    console.log('⚠️ No se encontraron campos personalizados para este contacto');
+                }
+            } catch (err) {
+                console.warn('⚠️ Error obteniendo campos personalizados por contactId:', err.message);
+                // Intentar método alternativo: buscar en todos los contactos
+                try {
+                    console.log('🔍 Intentando método alternativo: buscar contacto en lista completa...');
+                    const contactsResult = await api.getAllContacts();
+                    if (contactsResult.success && contactsResult.data) {
+                        const matchingContact = contactsResult.data.find(c => 
+                            c.id === contactId || 
                             c.recipient === contactId ||
                             c.userId === contactId ||
-                            String(c.id).includes(String(contactId)) ||
-                            String(contactId).includes(String(c.id))
+                            String(c.id) === String(contactId)
                         );
                         
-                        return nameMatches || idMatches;
-                    });
-                    
-                    if (matchingContact) {
-                        console.log('✅ Contacto encontrado:', matchingContact.name || matchingContact.fullName);
-                        console.log('📊 Estructura completa del contacto:', JSON.stringify(matchingContact, null, 2));
-                        
-                        // Buscar campos personalizados en cualquier estructura posible
-                        customFieldValues = matchingContact.customFields || 
-                                          matchingContact.custom_fields || 
-                                          matchingContact.fields ||
-                                          matchingContact.customFieldValues ||
-                                          matchingContact.user?.customFields ||
-                                          matchingContact.user?.custom_fields ||
-                                          {};
-                        
-                        // Si no se encontraron directamente, buscar por jsonName de cada campo disponible
-                        if (Object.keys(customFieldValues).length === 0 && availableFields.length > 0) {
-                            console.log('🔍 Buscando campos personalizados por jsonName en toda la estructura...');
-                            availableFields.forEach(field => {
-                                const jsonName = field.jsonName || field.name;
-                                if (jsonName && matchingContact[jsonName] !== undefined) {
-                                    customFieldValues[jsonName] = matchingContact[jsonName];
-                                }
-                                // También buscar variaciones del nombre
-                                const variations = [
-                                    jsonName,
-                                    jsonName.toLowerCase(),
-                                    jsonName.replace(/([A-Z])/g, '_$1').toLowerCase(),
-                                    field.id,
-                                    field.name
-                                ];
-                                variations.forEach(variation => {
-                                    if (variation && matchingContact[variation] !== undefined) {
-                                        customFieldValues[jsonName] = matchingContact[variation];
+                        if (matchingContact) {
+                            // Buscar campos personalizados en la estructura del contacto
+                            customFieldValues = matchingContact.customFields || 
+                                              matchingContact.custom_fields || 
+                                              matchingContact.fields ||
+                                              {};
+                            
+                            // Si no se encontraron, buscar por jsonName de cada campo disponible
+                            if (Object.keys(customFieldValues).length === 0 && availableFields.length > 0) {
+                                availableFields.forEach(field => {
+                                    const jsonName = field.jsonName || field.name;
+                                    if (jsonName && matchingContact[jsonName] !== undefined) {
+                                        customFieldValues[jsonName] = matchingContact[jsonName];
                                     }
                                 });
-                            });
-                        }
-                    } else {
-                        console.log('⚠️ Contacto no encontrado. Buscando por contactId...');
-                        // Intentar buscar por contactId como último recurso
-                        if (contactId) {
-                            try {
-                                const valuesResult = await api.getContactCustomFields(contactId);
-                                if (valuesResult.success && valuesResult.data) {
-                                    customFieldValues = valuesResult.data;
-                                }
-                            } catch (err) {
-                                console.log('⚠️ Error obteniendo campos por ID:', err.message);
+                            }
+                            
+                            if (Object.keys(customFieldValues).length > 0) {
+                                console.log(`✅ Campos personalizados encontrados en estructura del contacto`);
                             }
                         }
                     }
+                } catch (altErr) {
+                    console.warn('⚠️ Método alternativo también falló:', altErr.message);
                 }
-            } catch (err) {
-                console.log('⚠️ Error obteniendo contactos:', err.message);
             }
             
-            console.log('📊 Valores obtenidos:', Object.keys(customFieldValues).length);
-            if (Object.keys(customFieldValues).length > 0) {
-                console.log('📋 Valores encontrados:', customFieldValues);
-            } else {
-                console.log('⚠️ No se encontraron valores de campos personalizados');
-            }
+            console.log('📊 Resumen:', {
+                chatId,
+                contactId,
+                camposDisponibles: availableFields.length,
+                camposConValores: Object.keys(customFieldValues).length
+            });
 
             // Renderizar campos personalizados
             this.renderCustomFields(container, availableFields, customFieldValues);
@@ -2625,158 +2612,6 @@ class ChatbotDashboard {
                 ${fieldsHTML}
             </div>
         `;
-    }
-
-    /**
-     * Carga y muestra los campos personalizados de GPTMaker para un prospecto
-     */
-    async loadProspectCustomFields(chatId, containerId) {
-        try {
-            const container = document.getElementById(containerId);
-            if (!container) {
-                console.warn('⚠️ Contenedor de campos personalizados no encontrado');
-                return;
-            }
-
-            console.log(`📋 Cargando campos personalizados para chat: ${chatId}`);
-
-            // Buscar el chat para obtener el recipient (contactId)
-            let chat = this.dashboardData.chats?.find(c => c.id === chatId);
-            if (!chat) {
-                // Intentar cargar el chat si no está disponible
-                console.log('⚠️ Chat no encontrado en datos, intentando cargar...');
-                await this.loadRealData();
-                chat = this.dashboardData.chats?.find(c => c.id === chatId);
-                if (!chat) {
-                    container.innerHTML = '<p class="no-custom-fields">No se encontró información del chat</p>';
-                    return;
-                }
-            }
-
-            // Obtener API
-            const api = window.gptmakerAPI || this.api || (this.dataService && this.dataService.api);
-            if (!api) {
-                container.innerHTML = '<p class="no-custom-fields">API de GPTMaker no disponible</p>';
-                return;
-            }
-
-            // Obtener el nombre del prospecto desde el chat para buscar el contacto
-            const prospectName = (chat.name || chat.userName || '').toLowerCase().trim();
-            const contactId = chat.recipient || chat.userId || chatId;
-            console.log(`🔍 Buscando campos personalizados para: ${prospectName || 'prospecto sin nombre'}`);
-            console.log(`🔍 ContactId disponible: ${contactId || 'no disponible'}`);
-
-            // Obtener campos personalizados disponibles
-            const fieldsResult = await api.getCustomFields();
-            const availableFields = fieldsResult.success ? fieldsResult.data : [];
-            console.log('📊 Campos disponibles:', availableFields.length);
-            
-            // Obtener valores de campos personalizados buscando el contacto
-            let customFieldValues = {};
-            
-            console.log('🔍 Obteniendo todos los contactos y buscando por nombre o ID...');
-            try {
-                const contactsResult = await api.getAllContacts();
-                if (contactsResult.success && contactsResult.data && contactsResult.data.length > 0) {
-                    console.log(`📋 ${contactsResult.data.length} contactos obtenidos`);
-                    
-                    // Buscar contacto por nombre (comparación flexible) o por ID
-                    const matchingContact = contactsResult.data.find(c => {
-                        const contactName = (c.name || c.fullName || c.userName || (c.firstName + ' ' + c.lastName) || '').toLowerCase().trim();
-                        const searchName = prospectName;
-                        
-                        // Comparación por nombre (exacta, parcial, inversa)
-                        const nameMatches = searchName && contactName && (
-                            contactName === searchName || 
-                            contactName.includes(searchName) || 
-                            searchName.includes(contactName) ||
-                            contactName.split(' ')[0] === searchName.split(' ')[0] // Primer nombre
-                        );
-                        
-                        // También intentar por ID
-                        const idMatches = contactId && (
-                            c.id === contactId ||
-                            c.recipient === contactId ||
-                            c.userId === contactId ||
-                            String(c.id).includes(String(contactId)) ||
-                            String(contactId).includes(String(c.id))
-                        );
-                        
-                        return nameMatches || idMatches;
-                    });
-                    
-                    if (matchingContact) {
-                        console.log('✅ Contacto encontrado:', matchingContact.name || matchingContact.fullName);
-                        console.log('📊 Estructura completa del contacto:', JSON.stringify(matchingContact, null, 2));
-                        
-                        // Buscar campos personalizados en cualquier estructura posible
-                        customFieldValues = matchingContact.customFields || 
-                                          matchingContact.custom_fields || 
-                                          matchingContact.fields ||
-                                          matchingContact.customFieldValues ||
-                                          matchingContact.user?.customFields ||
-                                          matchingContact.user?.custom_fields ||
-                                          {};
-                        
-                        // Si no se encontraron directamente, buscar por jsonName de cada campo disponible
-                        if (Object.keys(customFieldValues).length === 0 && availableFields.length > 0) {
-                            console.log('🔍 Buscando campos personalizados por jsonName en toda la estructura...');
-                            availableFields.forEach(field => {
-                                const jsonName = field.jsonName || field.name;
-                                if (jsonName && matchingContact[jsonName] !== undefined) {
-                                    customFieldValues[jsonName] = matchingContact[jsonName];
-                                }
-                                // También buscar variaciones del nombre
-                                const variations = [
-                                    jsonName,
-                                    jsonName.toLowerCase(),
-                                    jsonName.replace(/([A-Z])/g, '_$1').toLowerCase(),
-                                    field.id,
-                                    field.name
-                                ];
-                                variations.forEach(variation => {
-                                    if (variation && matchingContact[variation] !== undefined) {
-                                        customFieldValues[jsonName] = matchingContact[variation];
-                                    }
-                                });
-                            });
-                        }
-                    } else {
-                        console.log('⚠️ Contacto no encontrado. Buscando por contactId...');
-                        // Intentar buscar por contactId como último recurso
-                        if (contactId) {
-                            try {
-                                const valuesResult = await api.getContactCustomFields(contactId);
-                                if (valuesResult.success && valuesResult.data) {
-                                    customFieldValues = valuesResult.data;
-                                }
-                            } catch (err) {
-                                console.log('⚠️ Error obteniendo campos por ID:', err.message);
-                            }
-                        }
-                    }
-                }
-            } catch (err) {
-                console.log('⚠️ Error obteniendo contactos:', err.message);
-            }
-            
-            console.log('📊 Valores obtenidos:', Object.keys(customFieldValues).length);
-            if (Object.keys(customFieldValues).length > 0) {
-                console.log('📋 Valores encontrados:', customFieldValues);
-            } else {
-                console.log('⚠️ No se encontraron valores de campos personalizados');
-            }
-
-            // Renderizar campos personalizados
-            this.renderCustomFields(container, availableFields, customFieldValues);
-
-        } catch (error) {
-            console.error('❌ Error cargando campos personalizados:', error);
-            const container = document.getElementById(containerId);
-            if (container) {
-                container.innerHTML = `<p class="error-custom-fields">Error al cargar campos personalizados: ${error.message}</p>`;
-            }
-        }
     }
 
     /**
