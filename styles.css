@@ -4247,11 +4247,13 @@ body {
 
 /* ===== PROSPECTOS ===== */
 .prospects-filters {
-    display: flex;
+    display: flex !important;
     gap: 1rem;
     margin-bottom: 1.5rem;
+    margin-top: 1rem;
     align-items: flex-start;
     flex-wrap: wrap;
+    width: 100%;
 }
 
 .prospects-filters .search-box {
