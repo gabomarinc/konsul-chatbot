@@ -6695,10 +6695,13 @@ class ChatbotDashboard {
             return true;
         });
 
-        // Ordenar: más recientes primero
+        // Ordenar: más recientes primero (priorizar createdTime - fecha de creación en Airtable)
+        // Esto asegura que el último prospecto agregado aparezca primero
         filteredProspects.sort((a, b) => {
-            const dateA = new Date(a.fechaExtraccion || a.createdTime || 0).getTime();
-            const dateB = new Date(b.fechaExtraccion || b.createdTime || 0).getTime();
+            // Priorizar createdTime (fecha de creación del registro en Airtable)
+            // Si no existe, usar fechaExtraccion como fallback
+            const dateA = new Date(a.createdTime || a.fechaExtraccion || 0).getTime();
+            const dateB = new Date(b.createdTime || b.fechaExtraccion || 0).getTime();
             return dateB - dateA; // Más reciente primero
         });
 
@@ -6745,14 +6748,17 @@ class ChatbotDashboard {
                 const uniqueProspects = [];
                 const seenChatIds = new Set();
                 
-                // Ordenar por fecha de extracción (más reciente primero)
+                // Ordenar por fecha de creación en Airtable (createdTime) - más reciente primero
+                // Esto asegura que el último prospecto agregado aparezca primero
                 validProspects.sort((a, b) => {
-                    const dateA = new Date(a.fechaExtraccion || a.createdTime || 0).getTime();
-                    const dateB = new Date(b.fechaExtraccion || b.createdTime || 0).getTime();
+                    // Priorizar createdTime (fecha de creación del registro en Airtable)
+                    // Si no existe, usar fechaExtraccion como fallback
+                    const dateA = new Date(a.createdTime || a.fechaExtraccion || 0).getTime();
+                    const dateB = new Date(b.createdTime || b.fechaExtraccion || 0).getTime();
                     return dateB - dateA; // Más reciente primero
                 });
                 
-                // Mantener solo el primero de cada chat_id
+                // Mantener solo el primero de cada chat_id (que será el más reciente después del sort)
                 validProspects.forEach(prospect => {
                     if (!seenChatIds.has(prospect.chatId)) {
                         seenChatIds.add(prospect.chatId);
