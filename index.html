@@ -526,6 +526,24 @@
                         </div>
                     </div>
 
+                    <!-- Filtros y búsqueda -->
+                    <div class="prospects-filters">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="prospectSearchInput" placeholder="Buscar por nombre o teléfono..." class="search-input">
+                            <button class="clear-search-btn" id="clearProspectSearch" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="filter-controls">
+                            <input type="date" id="prospectDateFilter" class="filter-input">
+                            <button class="btn btn-outline btn-sm" id="clearProspectFilters">
+                                <i class="fas fa-times"></i>
+                                Limpiar
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="prospects-table-container">
                         <table class="prospects-table">
                             <thead>
