@@ -2089,20 +2089,7 @@ class ChatbotDashboard {
         if (chatDetails && !document.querySelector('.assume-chat-btn')) {
             const assumeBtn = document.createElement('button');
             assumeBtn.className = 'assume-chat-btn';
-            assumeBtn.innerHTML = `
-                <div class="assume-chat-btn-content">
-                    <div class="assume-chat-btn-icon">
-                        <i class="fas fa-user-check"></i>
-                    </div>
-                    <div class="assume-chat-btn-text">
-                        <span class="assume-chat-btn-title">Asumir Chat</span>
-                        <span class="assume-chat-btn-subtitle">Tomar control de la conversación</span>
-                    </div>
-                    <div class="assume-chat-btn-arrow">
-                        <i class="fas fa-arrow-right"></i>
-                    </div>
-                </div>
-            `;
+            assumeBtn.innerHTML = '<i class="fas fa-user-check"></i> Asumir Chat';
             chatDetails.appendChild(assumeBtn);
 
             assumeBtn.addEventListener('click', () => this.assumeChat());
