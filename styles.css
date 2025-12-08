@@ -4435,6 +4435,150 @@ body {
     color: var(--text-primary);
 }
 
+/* Paginación de Prospectos */
+.prospects-pagination {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.pagination-info {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.pagination-buttons .btn {
+    min-width: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.pagination-buttons .btn.disabled,
+.pagination-buttons .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.page-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.page-input-group span {
+    white-space: nowrap;
+}
+
+.page-input {
+    width: 60px;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.page-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+}
+
+.page-input::-webkit-inner-spin-button,
+.page-input::-webkit-outer-spin-button {
+    opacity: 1;
+}
+
+.items-per-page {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.items-per-page label {
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.items-per-page-select {
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 12px;
+}
+
+.items-per-page-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+}
+
+.items-per-page-select:hover {
+    border-color: var(--primary-color);
+}
+
+/* Responsive para paginación */
+@media (max-width: 768px) {
+    .pagination-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pagination-buttons {
+        justify-content: center;
+    }
+
+    .items-per-page {
+        justify-content: center;
+    }
+
+    .page-input-group {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
 /* Modal de Prospecto */
 .prospect-modal.modal-overlay {
     background: rgba(0, 0, 0, 0.75) !important;

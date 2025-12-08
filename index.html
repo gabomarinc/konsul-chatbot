@@ -559,6 +559,46 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Controles de paginación -->
+                    <div class="prospects-pagination">
+                        <div class="pagination-info">
+                            <span id="prospectsPageInfo">Mostrando 0-0 de 0 prospectos</span>
+                        </div>
+                        <div class="pagination-controls">
+                            <div class="pagination-buttons">
+                                <button id="prospectsPaginationPrev" class="btn btn-outline btn-sm" disabled>
+                                    <i class="fas fa-chevron-left"></i>
+                                    Anterior
+                                </button>
+                                <div class="page-input-group">
+                                    <span>Página</span>
+                                    <input 
+                                        type="number" 
+                                        id="prospectsPageInput" 
+                                        class="page-input" 
+                                        min="1" 
+                                        value="1"
+                                        aria-label="Número de página"
+                                    >
+                                    <span>de <span id="prospectsTotalPages">1</span></span>
+                                </div>
+                                <button id="prospectsPaginationNext" class="btn btn-outline btn-sm">
+                                    Siguiente
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                            <div class="items-per-page">
+                                <label for="prospectsItemsPerPage">Mostrar:</label>
+                                <select id="prospectsItemsPerPage" class="items-per-page-select">
+                                    <option value="25">25</option>
+                                    <option value="50" selected>50</option>
+                                    <option value="100">100</option>
+                                    <option value="200">200</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Mejoras Section -->

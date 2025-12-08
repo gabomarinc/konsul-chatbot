@@ -40,6 +40,15 @@ class ChatbotDashboard {
         this.headerNotifications = [];
         this.unreadNotificationsCount = 0;
         
+        // Sistema de paginación para prospectos
+        this.prospectsPagination = {
+            currentPage: 1,
+            itemsPerPage: 50, // Por defecto 50 items por página (configurable)
+            totalPages: 1,
+            filteredProspects: [], // Prospectos después de aplicar filtros
+            totalFiltered: 0
+        };
+        
         this.init();
     }
     // Espera a que window.teamManager esté disponible
@@ -6475,9 +6484,125 @@ class ChatbotDashboard {
 
         // Configurar búsqueda y filtros
         this.setupProspectsFilters();
+        
+        // Configurar paginación
+        this.setupProspectsPagination();
 
         // Cargar prospectos al entrar a la sección
         this.loadProspects();
+    }
+    
+    setupProspectsPagination() {
+        // Botón anterior
+        const prevBtn = document.getElementById('prospectsPaginationPrev');
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (this.prospectsPagination.currentPage > 1) {
+                    this.prospectsPagination.currentPage--;
+                    this.renderProspectsPaginated();
+                    this.updatePaginationControls();
+                    // Scroll suave hacia arriba de la tabla
+                    const tableContainer = document.querySelector('.prospects-table-container');
+                    if (tableContainer) {
+                        tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            });
+        }
+
+        // Botón siguiente
+        const nextBtn = document.getElementById('prospectsPaginationNext');
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                if (this.prospectsPagination.currentPage < this.prospectsPagination.totalPages) {
+                    this.prospectsPagination.currentPage++;
+                    this.renderProspectsPaginated();
+                    this.updatePaginationControls();
+                    // Scroll suave hacia arriba de la tabla
+                    const tableContainer = document.querySelector('.prospects-table-container');
+                    if (tableContainer) {
+                        tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            });
+        }
+
+        // Selector de items por página
+        const itemsPerPageSelect = document.getElementById('prospectsItemsPerPage');
+        if (itemsPerPageSelect) {
+            itemsPerPageSelect.addEventListener('change', (e) => {
+                const newItemsPerPage = parseInt(e.target.value, 10);
+                this.prospectsPagination.itemsPerPage = newItemsPerPage;
+                this.prospectsPagination.currentPage = 1; // Resetear a página 1
+                this.prospectsPagination.totalPages = Math.max(1, Math.ceil(
+                    this.prospectsPagination.totalFiltered / newItemsPerPage
+                ));
+                this.renderProspectsPaginated();
+                this.updatePaginationControls();
+            });
+        }
+
+        // Input de página directa
+        const pageInput = document.getElementById('prospectsPageInput');
+        if (pageInput) {
+            pageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const pageNumber = parseInt(e.target.value, 10);
+                    if (pageNumber >= 1 && pageNumber <= this.prospectsPagination.totalPages) {
+                        this.prospectsPagination.currentPage = pageNumber;
+                        this.renderProspectsPaginated();
+                        this.updatePaginationControls();
+                        // Scroll suave hacia arriba de la tabla
+                        const tableContainer = document.querySelector('.prospects-table-container');
+                        if (tableContainer) {
+                            tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    } else {
+                        // Restaurar valor válido
+                        e.target.value = this.prospectsPagination.currentPage;
+                    }
+                }
+            });
+        }
+    }
+    
+    updatePaginationControls() {
+        const { currentPage, totalPages, totalFiltered, itemsPerPage } = this.prospectsPagination;
+        
+        // Actualizar botones anterior/siguiente
+        const prevBtn = document.getElementById('prospectsPaginationPrev');
+        const nextBtn = document.getElementById('prospectsPaginationNext');
+        
+        if (prevBtn) {
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.classList.toggle('disabled', currentPage === 1);
+        }
+        
+        if (nextBtn) {
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.classList.toggle('disabled', currentPage === totalPages);
+        }
+        
+        // Actualizar información de página
+        const pageInfo = document.getElementById('prospectsPageInfo');
+        if (pageInfo) {
+            const startIndex = (currentPage - 1) * itemsPerPage + 1;
+            const endIndex = Math.min(currentPage * itemsPerPage, totalFiltered);
+            pageInfo.textContent = `Mostrando ${startIndex}-${endIndex} de ${totalFiltered} prospectos`;
+        }
+        
+        // Actualizar input de página
+        const pageInput = document.getElementById('prospectsPageInput');
+        if (pageInput) {
+            pageInput.value = currentPage;
+            pageInput.max = totalPages;
+        }
+        
+        // Actualizar total de páginas
+        const totalPagesSpan = document.getElementById('prospectsTotalPages');
+        if (totalPagesSpan) {
+            totalPagesSpan.textContent = totalPages;
+        }
     }
 
     setupProspectsFilters() {
@@ -6566,8 +6691,21 @@ class ChatbotDashboard {
             return dateB - dateA; // Más reciente primero
         });
 
-        // Renderizar prospectos filtrados
-        this.renderProspects(filteredProspects);
+        // Guardar prospectos filtrados para paginación
+        this.prospectsPagination.filteredProspects = filteredProspects;
+        this.prospectsPagination.totalFiltered = filteredProspects.length;
+        
+        // Resetear a página 1 cuando se aplican nuevos filtros
+        this.prospectsPagination.currentPage = 1;
+        
+        // Calcular total de páginas
+        this.prospectsPagination.totalPages = Math.max(1, Math.ceil(filteredProspects.length / this.prospectsPagination.itemsPerPage));
+
+        // Renderizar prospectos con paginación
+        this.renderProspectsPaginated();
+        
+        // Actualizar controles de paginación
+        this.updatePaginationControls();
     }
 
     async loadProspects() {
@@ -6629,13 +6767,15 @@ class ChatbotDashboard {
         }
     }
 
-    renderProspects(prospects) {
+    renderProspectsPaginated() {
         const prospectsList = document.getElementById('prospectsList');
         if (!prospectsList) return;
 
         prospectsList.innerHTML = '';
 
-        if (prospects.length === 0) {
+        const { filteredProspects, currentPage, itemsPerPage } = this.prospectsPagination;
+        
+        if (filteredProspects.length === 0) {
             prospectsList.innerHTML = `
                 <tr>
                     <td colspan="4" class="text-center">
@@ -6650,10 +6790,27 @@ class ChatbotDashboard {
             return;
         }
 
-        prospects.forEach(prospect => {
+        // Calcular índices para la página actual
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const prospectsToRender = filteredProspects.slice(startIndex, endIndex);
+
+        // Renderizar solo los prospectos de la página actual
+        prospectsToRender.forEach(prospect => {
             const row = this.createProspectRow(prospect);
             prospectsList.appendChild(row);
         });
+    }
+
+    // Método legacy para compatibilidad (ahora usa paginación)
+    renderProspects(prospects) {
+        // Si se llama directamente, aplicar paginación
+        this.prospectsPagination.filteredProspects = prospects;
+        this.prospectsPagination.totalFiltered = prospects.length;
+        this.prospectsPagination.currentPage = 1;
+        this.prospectsPagination.totalPages = Math.max(1, Math.ceil(prospects.length / this.prospectsPagination.itemsPerPage));
+        this.renderProspectsPaginated();
+        this.updatePaginationControls();
     }
 
     createProspectRow(prospect) {
