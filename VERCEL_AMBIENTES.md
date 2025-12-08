@@ -168,3 +168,4 @@ Esto creará un archivo `.env.local` con las variables del ambiente "Development
 
 - [Documentación oficial de Vercel sobre ambientes](https://vercel.com/docs/deployments/pre-production)
 - [Variables de entorno en Vercel](https://vercel.com/docs/projects/environment-variables)
+

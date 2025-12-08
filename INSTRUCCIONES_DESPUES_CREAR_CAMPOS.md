@@ -96,3 +96,4 @@ Si no ves estos mensajes, puede que no haya imágenes/documentos en ese chat esp
 
 Una vez que hagas estos pasos, las imágenes y documentos deberían aparecer automáticamente en el modal "Ver Prospecto" para todos los prospectos que las tengan.
 
+

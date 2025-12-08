@@ -2456,7 +2456,8 @@ class ChatbotDashboard {
                 return;
             }
 
-            console.log(`📋 Cargando campos personalizados para chatId: ${chatId}`);
+            console.log(`📋 ===== CARGANDO CAMPOS PERSONALIZADOS =====`);
+            console.log(`📋 ChatId: ${chatId}`);
 
             // Obtener API
             const api = window.gptmakerAPI || this.api || (this.dataService && this.dataService.api);
@@ -2561,12 +2562,15 @@ class ChatbotDashboard {
                 }
             }
             
+            console.log('📊 ===== RESUMEN FINAL =====');
             console.log('📊 Resumen:', {
                 chatId,
                 contactId,
                 camposDisponibles: availableFields.length,
-                camposConValores: Object.keys(customFieldValues).length
+                camposConValores: Object.keys(customFieldValues).length,
+                valores: customFieldValues
             });
+            console.log('📊 ===== FIN RESUMEN =====');
 
             // Renderizar campos personalizados
             this.renderCustomFields(container, availableFields, customFieldValues);
@@ -6591,7 +6595,7 @@ class ChatbotDashboard {
                     ` : ''}
 
                     <div class="prospect-custom-fields-section">
-                        <h3><i class="fas fa-tags"></i> Campos Personalizados de GPTMaker</h3>
+                        <h3><i class="fas fa-tags"></i> Campos Personalizados</h3>
                         <div id="customFieldsContainer" class="custom-fields-container">
                             <div class="loading-custom-fields">
                                 <i class="fas fa-spinner fa-spin"></i>

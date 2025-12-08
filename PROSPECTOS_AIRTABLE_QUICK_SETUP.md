@@ -50,3 +50,4 @@ Si prefieres no configurar Airtable ahora:
 - [ ] Agregar campo `fecha_extraccion` (Date)
 
 **¡Con esto ya podemos empezar a codificar!** 🚀
+

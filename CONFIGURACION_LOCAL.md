@@ -60,3 +60,4 @@ Después de configurar, deberías ver en la consola del navegador:
 - Usa el mismo valor que tienes en Vercel para `AIRTABLE_API_KEY`
 - En Vite, las variables deben empezar con `VITE_` para estar disponibles en el frontend
 - Si cambias el archivo `.env.local`, debes reiniciar el servidor
+

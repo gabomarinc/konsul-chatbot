@@ -132,3 +132,4 @@ Abre la consola del navegador y verás logs detallados como:
 4. Compártelos para poder ayudarte mejor
 
 ¡La extracción ahora es más robusta y funcionará con la mayoría de los casos! 🎉
+

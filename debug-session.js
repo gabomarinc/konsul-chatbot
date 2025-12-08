@@ -132,3 +132,4 @@ console.log('🔧 FUNCIONES DE DIAGNÓSTICO DISPONIBLES:');
 console.log('- debugSession() - Diagnosticar problema de sesión');
 console.log('- fixSession() - Intentar reparar sesión');
 
+

@@ -82,3 +82,4 @@ testAirtableLocal().then(success => {
 
 // Exportar función para uso manual
 window.testAirtableLocal = testAirtableLocal;
+

@@ -55,3 +55,4 @@
 - **Solución**: Cambiado a `this.setCache()` (método correcto)
 - **Estado**: ✅ Corregido
 
+
