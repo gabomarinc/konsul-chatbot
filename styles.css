@@ -476,6 +476,15 @@ body {
     color: white !important;
 }
 
+/* Botón Sincronizar en sección de Prospectos - texto blanco */
+#refreshProspectsBtn.btn-primary {
+    color: white !important;
+}
+
+#refreshProspectsBtn.btn-primary i {
+    color: white !important;
+}
+
 /* Botón de Extraer Prospectos más grande (25% más grande) */
 .extract-prospects-btn-large {
     padding: 0.625rem 1.25rem !important; /* 25% más grande que 0.5rem 1rem */
