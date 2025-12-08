@@ -476,6 +476,27 @@ body {
     color: white !important;
 }
 
+/* Botón de Extraer Prospectos más grande (25% más grande) */
+.extract-prospects-btn-large {
+    padding: 0.625rem 1.25rem !important; /* 25% más grande que 0.5rem 1rem */
+    font-size: 1.09375rem !important; /* 25% más grande que 0.875rem */
+    min-height: calc(1.25 * 2.25rem); /* Asegurar altura 25% mayor */
+    color: white !important; /* Texto en blanco */
+    animation: syncPulse 2s ease-in-out infinite; /* Animación de sombreado pulsante */
+    background: var(--primary-color) !important; /* Fondo verde */
+    border-color: var(--primary-color) !important;
+}
+
+/* Asegurar que el icono también sea blanco */
+.extract-prospects-btn-large i {
+    color: white !important;
+}
+
+.extract-prospects-btn-large:hover {
+    background: var(--primary-dark) !important;
+    border-color: var(--primary-dark) !important;
+}
+
 /* Animación de sombreado pulsante para el botón de sincronizar */
 @keyframes syncPulse {
     0% {
