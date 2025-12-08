@@ -3040,6 +3040,13 @@ body {
     }
 }
 
+/* Assume Chat Container - Mismo padding que message-input-container */
+.assume-chat-container {
+    padding: 0 1rem 1rem 1rem;
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
 /* Assume Chat Button - Diseño consistente con otros botones del chat */
 .assume-chat-btn {
     width: 100%;
@@ -3056,7 +3063,7 @@ body {
     gap: 0.75rem;
     font-weight: 600;
     font-size: 0.9375rem;
-    margin: 1rem 0;
+    margin: 0;
     box-shadow: 0 2px 8px rgba(39, 190, 165, 0.2);
     flex-shrink: 0;
 }
