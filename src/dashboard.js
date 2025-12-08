@@ -6473,8 +6473,101 @@ class ChatbotDashboard {
             });
         }
 
+        // Configurar búsqueda y filtros
+        this.setupProspectsFilters();
+
         // Cargar prospectos al entrar a la sección
         this.loadProspects();
+    }
+
+    setupProspectsFilters() {
+        // Búsqueda
+        const searchInput = document.getElementById('prospectSearchInput');
+        const clearSearchBtn = document.getElementById('clearProspectSearch');
+        
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                if (query.length > 0) {
+                    clearSearchBtn.style.display = 'flex';
+                } else {
+                    clearSearchBtn.style.display = 'none';
+                }
+                this.applyProspectsFilters();
+            });
+        }
+
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                clearSearchBtn.style.display = 'none';
+                this.applyProspectsFilters();
+            });
+        }
+
+        // Filtro de fecha
+        const dateFilter = document.getElementById('prospectDateFilter');
+        if (dateFilter) {
+            dateFilter.addEventListener('change', () => {
+                this.applyProspectsFilters();
+            });
+        }
+
+        // Botón limpiar filtros
+        const clearFiltersBtn = document.getElementById('clearProspectFilters');
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                if (dateFilter) dateFilter.value = '';
+                if (clearSearchBtn) clearSearchBtn.style.display = 'none';
+                this.applyProspectsFilters();
+            });
+        }
+    }
+
+    applyProspectsFilters() {
+        const searchInput = document.getElementById('prospectSearchInput');
+        const dateFilter = document.getElementById('prospectDateFilter');
+        
+        const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        const dateFilterValue = dateFilter ? dateFilter.value : '';
+
+        // Obtener todos los prospectos originales
+        const allProspects = this.allProspects || [];
+        
+        // Filtrar prospectos
+        let filteredProspects = allProspects.filter(prospect => {
+            // Filtro de búsqueda
+            if (searchQuery) {
+                const nombre = (prospect.nombre || '').toLowerCase();
+                const telefono = (prospect.telefono || '').toLowerCase();
+                if (!nombre.includes(searchQuery) && !telefono.includes(searchQuery)) {
+                    return false;
+                }
+            }
+
+            // Filtro de fecha
+            if (dateFilterValue) {
+                const prospectDate = prospect.fechaExtraccion 
+                    ? new Date(prospect.fechaExtraccion).toISOString().split('T')[0]
+                    : '';
+                if (prospectDate !== dateFilterValue) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        // Ordenar: más recientes primero
+        filteredProspects.sort((a, b) => {
+            const dateA = new Date(a.fechaExtraccion || a.createdTime || 0).getTime();
+            const dateB = new Date(b.fechaExtraccion || b.createdTime || 0).getTime();
+            return dateB - dateA; // Más reciente primero
+        });
+
+        // Renderizar prospectos filtrados
+        this.renderProspects(filteredProspects);
     }
 
     async loadProspects() {
@@ -6505,9 +6598,9 @@ class ChatbotDashboard {
                 
                 // Ordenar por fecha de extracción (más reciente primero)
                 validProspects.sort((a, b) => {
-                    const dateA = new Date(a.fechaExtraccion || a.createdTime || 0);
-                    const dateB = new Date(b.fechaExtraccion || b.createdTime || 0);
-                    return dateB - dateA;
+                    const dateA = new Date(a.fechaExtraccion || a.createdTime || 0).getTime();
+                    const dateB = new Date(b.fechaExtraccion || b.createdTime || 0).getTime();
+                    return dateB - dateA; // Más reciente primero
                 });
                 
                 // Mantener solo el primero de cada chat_id
@@ -6521,7 +6614,12 @@ class ChatbotDashboard {
                 });
                 
                 console.log(`✅ ${uniqueProspects.length} prospectos únicos de ${result.data.length} totales (eliminados ${result.data.length - uniqueProspects.length} duplicados/inválidos)`);
-                this.renderProspects(uniqueProspects);
+                
+                // Guardar todos los prospectos para filtrado
+                this.allProspects = uniqueProspects;
+                
+                // Aplicar filtros (si hay alguno activo) o mostrar todos
+                this.applyProspectsFilters();
             } else {
                 throw new Error(result.error || 'Error cargando prospectos');
             }
