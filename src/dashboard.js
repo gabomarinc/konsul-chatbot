@@ -2501,13 +2501,22 @@ class ChatbotDashboard {
             let customFieldValues = {};
             
             // PRIMERO: Intentar obtener desde getAllContacts (método más confiable)
+            console.log(`🔍 ===== MÉTODO 1: Buscando contacto en lista completa =====`);
             try {
-                console.log(`🔍 MÉTODO 1: Buscando contacto en lista completa...`);
+                console.log(`📡 Llamando a getAllContacts()...`);
                 const contactsResult = await api.getAllContacts();
-                if (contactsResult.success && contactsResult.data) {
+                console.log(`📊 Resultado de getAllContacts:`, {
+                    success: contactsResult.success,
+                    hasData: !!contactsResult.data,
+                    dataLength: contactsResult.data?.length || 0,
+                    error: contactsResult.error
+                });
+                
+                if (contactsResult.success && contactsResult.data && contactsResult.data.length > 0) {
                     console.log(`📋 Total de contactos obtenidos: ${contactsResult.data.length}`);
                     
                     // Buscar contacto por ID
+                    console.log(`🔍 Buscando contacto con contactId: ${contactId}`);
                     let matchingContact = contactsResult.data.find(c => 
                         c.id === contactId || 
                         c.recipient === contactId ||
@@ -2515,10 +2524,16 @@ class ChatbotDashboard {
                         String(c.id) === String(contactId)
                     );
                     
+                    if (matchingContact) {
+                        console.log(`✅ Contacto encontrado por ID`);
+                    } else {
+                        console.log(`⚠️ Contacto no encontrado por ID, intentando por nombre...`);
+                    }
+                    
                     // Si no se encuentra por ID, buscar por nombre del chat
                     if (!matchingContact && chat && (chat.name || chat.userName)) {
                         const searchName = (chat.name || chat.userName).toLowerCase().trim();
-                        console.log(`🔍 Contacto no encontrado por ID, buscando por nombre: "${searchName}"`);
+                        console.log(`🔍 Buscando por nombre: "${searchName}"`);
                         matchingContact = contactsResult.data.find(c => {
                             const contactName = (c.name || c.fullName || c.userName || '').toLowerCase().trim();
                             return contactName && (
@@ -2528,6 +2543,9 @@ class ChatbotDashboard {
                                 contactName.split(' ')[0] === searchName.split(' ')[0]
                             );
                         });
+                        if (matchingContact) {
+                            console.log(`✅ Contacto encontrado por nombre`);
+                        }
                     }
                     
                     if (matchingContact) {
@@ -2537,10 +2555,13 @@ class ChatbotDashboard {
                             recipient: matchingContact.recipient,
                             userId: matchingContact.userId
                         });
-                        console.log(`📊 Estructura completa del contacto:`, matchingContact);
+                        console.log(`📊 ===== ESTRUCTURA COMPLETA DEL CONTACTO =====`);
+                        console.log(JSON.stringify(matchingContact, null, 2));
                         console.log(`📋 Claves disponibles:`, Object.keys(matchingContact));
+                        console.log(`📊 ===== FIN ESTRUCTURA =====`);
                         
                         // Buscar campos personalizados en diferentes ubicaciones posibles
+                        console.log(`🔍 Buscando campos personalizados en diferentes ubicaciones...`);
                         customFieldValues = matchingContact.customFields || 
                                           matchingContact.custom_fields || 
                                           matchingContact.fields ||
@@ -2548,10 +2569,15 @@ class ChatbotDashboard {
                                           {};
                         
                         console.log(`📋 Campos encontrados directamente:`, Object.keys(customFieldValues).length);
+                        if (Object.keys(customFieldValues).length > 0) {
+                            console.log(`📋 Valores directos:`, customFieldValues);
+                        }
                         
                         // Si no se encontraron directamente, buscar por jsonName de cada campo disponible
                         if (Object.keys(customFieldValues).length === 0 && availableFields.length > 0) {
                             console.log(`🔍 Buscando campos por jsonName en estructura del contacto...`);
+                            console.log(`📋 Campos disponibles a buscar:`, availableFields.map(f => f.jsonName || f.name));
+                            
                             availableFields.forEach(field => {
                                 const jsonName = field.jsonName || field.name;
                                 // Buscar en diferentes variaciones
@@ -2569,7 +2595,7 @@ class ChatbotDashboard {
                                     variations.forEach(variation => {
                                         if (variation && matchingContact[variation] !== undefined) {
                                             customFieldValues[jsonName] = matchingContact[variation];
-                                            console.log(`   ✅ Encontrado (variación): ${jsonName} = ${matchingContact[variation]}`);
+                                            console.log(`   ✅ Encontrado (variación ${variation}): ${jsonName} = ${matchingContact[variation]}`);
                                         }
                                     });
                                 }
@@ -2578,17 +2604,24 @@ class ChatbotDashboard {
                         
                         if (Object.keys(customFieldValues).length > 0) {
                             console.log(`✅ ${Object.keys(customFieldValues).length} campos personalizados encontrados en estructura del contacto`);
-                            console.log(`📋 Valores:`, customFieldValues);
+                            console.log(`📋 Valores finales:`, customFieldValues);
                         } else {
                             console.log(`⚠️ No se encontraron campos personalizados en la estructura del contacto`);
+                            console.log(`💡 El contacto existe pero no tiene valores en campos personalizados`);
                         }
                     } else {
                         console.log(`⚠️ Contacto no encontrado en lista completa`);
+                        console.log(`💡 Intentando con contactId alternativo o método directo...`);
                     }
+                } else {
+                    console.warn(`⚠️ getAllContacts no devolvió datos válidos:`, contactsResult);
                 }
             } catch (altErr) {
-                console.warn('⚠️ Error en método de lista de contactos:', altErr.message);
+                console.error('❌ Error en método de lista de contactos:', altErr);
+                console.error('   - Mensaje:', altErr.message);
+                console.error('   - Stack:', altErr.stack);
             }
+            console.log(`🔍 ===== FIN MÉTODO 1 =====`);
             
             // SEGUNDO: Si no se encontraron, intentar endpoint directo
             if (Object.keys(customFieldValues).length === 0) {
