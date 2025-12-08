@@ -808,6 +808,15 @@ class AirtableService {
             if (prospectData.comentarios !== undefined) {
                 fields['comentarios'] = prospectData.comentarios || '';
             }
+            
+            // Actualizar campos_solicitados si existen
+            if (prospectData.campos_solicitados !== undefined) {
+                if (typeof prospectData.campos_solicitados === 'string') {
+                    fields['campos_solicitados'] = prospectData.campos_solicitados;
+                } else if (typeof prospectData.campos_solicitados === 'object') {
+                    fields['campos_solicitados'] = JSON.stringify(prospectData.campos_solicitados);
+                }
+            }
 
             const payload = { fields };
 

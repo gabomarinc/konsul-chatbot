@@ -2528,6 +2528,30 @@ class ChatbotDashboard {
             const fieldsResult = await api.getCustomFields();
             const availableFields = fieldsResult.success ? fieldsResult.data : [];
             console.log(`📊 ${availableFields.length} campos personalizados disponibles`);
+            
+            // Obtener prospecto desde Airtable para cargar campos_solicitados guardados
+            let savedRequestedFields = {};
+            if (window.airtableService && chatId) {
+                try {
+                    const prospectResult = await window.airtableService.getProspectByChatId(chatId);
+                    if (prospectResult.success && prospectResult.prospect && prospectResult.prospect.campos_solicitados) {
+                        // Parsear campos_solicitados (puede ser JSON string o objeto)
+                        const camposSolicitados = prospectResult.prospect.campos_solicitados;
+                        if (typeof camposSolicitados === 'string') {
+                            try {
+                                savedRequestedFields = JSON.parse(camposSolicitados);
+                            } catch (e) {
+                                console.warn('⚠️ Error parseando campos_solicitados:', e);
+                            }
+                        } else if (typeof camposSolicitados === 'object') {
+                            savedRequestedFields = camposSolicitados;
+                        }
+                        console.log('📋 Campos solicitados guardados:', savedRequestedFields);
+                    }
+                } catch (err) {
+                    console.warn('⚠️ Error obteniendo prospecto para campos_solicitados:', err);
+                }
+            }
 
             // Obtener valores de campos personalizados del contacto usando el chatId
             let customFieldValues = {};
@@ -2660,8 +2684,8 @@ class ChatbotDashboard {
             });
             console.log('📊 ===== FIN RESUMEN =====');
 
-            // Renderizar campos personalizados
-            this.renderCustomFields(container, availableFields, customFieldValues);
+            // Renderizar lista de campos personalizados con checkboxes
+            this.renderCustomFieldsWithCheckboxes(container, availableFields, savedRequestedFields, chatId);
 
         } catch (error) {
             console.warn('⚠️ Error cargando campos personalizados (no crítico):', error.message);
@@ -2772,6 +2796,131 @@ class ChatbotDashboard {
                 ${fieldsHTML}
             </div>
         `;
+    }
+
+    /**
+     * Renderiza la lista de campos personalizados con checkboxes para solicitar
+     */
+    renderCustomFieldsWithCheckboxes(container, availableFields, savedRequestedFields, chatId) {
+        if (!container) return;
+
+        if (!availableFields || availableFields.length === 0) {
+            container.innerHTML = `
+                <div class="no-custom-fields">
+                    <i class="fas fa-info-circle"></i>
+                    <p>No hay campos personalizados disponibles para configurar.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Crear HTML con checkboxes
+        const fieldsHTML = availableFields.map((field, index) => {
+            const fieldId = field.id || field.jsonName || field.name;
+            const fieldName = field.name || field.jsonName || 'Campo sin nombre';
+            const isChecked = savedRequestedFields[fieldId] === true || savedRequestedFields[fieldName] === true;
+            const checkboxId = `customFieldCheckbox_${chatId}_${index}`;
+
+            return `
+                <div class="custom-field-checkbox-item">
+                    <label class="custom-field-checkbox-label" for="${checkboxId}">
+                        <input 
+                            type="checkbox" 
+                            id="${checkboxId}" 
+                            class="custom-field-checkbox" 
+                            data-field-id="${fieldId}"
+                            data-field-name="${this.escapeHtml(fieldName)}"
+                            ${isChecked ? 'checked' : ''}
+                        >
+                        <span class="checkbox-custom"></span>
+                        <span class="checkbox-label-text">${this.escapeHtml(fieldName)}</span>
+                    </label>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="custom-fields-checkboxes-container">
+                <div class="custom-fields-checkboxes-list">
+                    ${fieldsHTML}
+                </div>
+                <button class="btn btn-primary btn-sm save-custom-fields-btn" data-chat-id="${chatId}">
+                    <i class="fas fa-save"></i>
+                    Guardar Campos Solicitados
+                </button>
+            </div>
+        `;
+
+        // Agregar event listener al botón de guardar
+        const saveBtn = container.querySelector('.save-custom-fields-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                await this.saveRequestedCustomFields(chatId, container);
+            });
+        }
+
+        // Agregar event listeners a los checkboxes para auto-guardar opcional (comentado por ahora)
+        // container.querySelectorAll('.custom-field-checkbox').forEach(checkbox => {
+        //     checkbox.addEventListener('change', () => {
+        //         // Auto-guardar cuando cambie un checkbox
+        //         this.saveRequestedCustomFields(chatId, container);
+        //     });
+        // });
+    }
+
+    /**
+     * Guarda los campos personalizados solicitados en Airtable
+     */
+    async saveRequestedCustomFields(chatId, container) {
+        try {
+            if (!window.prospectsService) {
+                this.showNotification('Error: ProspectsService no disponible', 'error');
+                return;
+            }
+
+            // Obtener estado de todos los checkboxes
+            const checkboxes = container.querySelectorAll('.custom-field-checkbox');
+            const requestedFields = {};
+
+            checkboxes.forEach(checkbox => {
+                const fieldId = checkbox.getAttribute('data-field-id');
+                const fieldName = checkbox.getAttribute('data-field-name');
+                const isChecked = checkbox.checked;
+                
+                // Guardar con ambos ID y nombre para flexibilidad
+                if (fieldId) {
+                    requestedFields[fieldId] = isChecked;
+                }
+                if (fieldName) {
+                    requestedFields[fieldName] = isChecked;
+                }
+            });
+
+            console.log('💾 Guardando campos solicitados:', requestedFields);
+
+            // Obtener prospecto por chatId
+            const prospectResult = await window.airtableService.getProspectByChatId(chatId);
+            
+            if (!prospectResult.success || !prospectResult.prospect) {
+                this.showNotification('No se encontró el prospecto para guardar los campos', 'warning');
+                return;
+            }
+
+            // Actualizar prospecto en Airtable
+            const updateResult = await window.airtableService.updateProspect(prospectResult.prospect.id, {
+                campos_solicitados: JSON.stringify(requestedFields)
+            });
+
+            if (updateResult.success) {
+                this.showNotification('✅ Campos solicitados guardados correctamente', 'success');
+                console.log('✅ Campos solicitados guardados en Airtable');
+            } else {
+                throw new Error(updateResult.error || 'Error al guardar');
+            }
+        } catch (error) {
+            console.error('❌ Error guardando campos solicitados:', error);
+            this.showNotification('Error al guardar campos solicitados: ' + error.message, 'error');
+        }
     }
 
 
