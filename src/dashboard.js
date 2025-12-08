@@ -2980,6 +2980,24 @@ class ChatbotDashboard {
         const chatMessagesContainer = document.getElementById('chatMessagesContainer');
         if (chatMessagesContainer) {
             chatMessagesContainer.innerHTML = '';
+        } else {
+            // Si no existe el contenedor, limpiar todo el chatDetails excepto elementos de envío
+            const headerDetails = chatDetails.querySelector('.chat-header-details');
+            const messageInput = chatDetails.querySelector('.message-input-container');
+            const assumeBtn = chatDetails.querySelector('.assume-chat-btn');
+            
+            chatDetails.innerHTML = '';
+            
+            // Restaurar solo elementos necesarios si existen
+            if (headerDetails) {
+                chatDetails.appendChild(headerDetails);
+            }
+            if (messageInput) {
+                chatDetails.appendChild(messageInput);
+            }
+            if (assumeBtn) {
+                chatDetails.appendChild(assumeBtn);
+            }
         }
 
         // Ocultar loading si existe
@@ -6250,7 +6268,10 @@ class ChatbotDashboard {
         // Botón de sincronizar
         const refreshBtn = document.getElementById('refreshProspectsBtn');
         if (refreshBtn) {
-            refreshBtn.addEventListener('click', async () => {
+            // Remover listeners anteriores para evitar duplicados
+            const newRefreshBtn = refreshBtn.cloneNode(true);
+            refreshBtn.parentNode.replaceChild(newRefreshBtn, refreshBtn);
+            newRefreshBtn.addEventListener('click', async () => {
                 await this.loadProspects();
             });
         }
@@ -6258,8 +6279,31 @@ class ChatbotDashboard {
         // Botón de extraer prospectos
         const extractBtn = document.getElementById('extractProspectsBtn');
         if (extractBtn) {
-            extractBtn.addEventListener('click', async () => {
-                await this.extractProspectsFromChats();
+            // Remover listeners anteriores para evitar duplicados
+            const newExtractBtn = extractBtn.cloneNode(true);
+            extractBtn.parentNode.replaceChild(newExtractBtn, extractBtn);
+            newExtractBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Prevenir múltiples clics simultáneos
+                if (newExtractBtn.disabled) {
+                    console.log('⚠️ Extracción ya en progreso, ignorando clic');
+                    return;
+                }
+                
+                // Deshabilitar botón durante la ejecución
+                newExtractBtn.disabled = true;
+                const originalText = newExtractBtn.innerHTML;
+                newExtractBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Extrayendo...';
+                
+                try {
+                    await this.extractProspectsFromChats();
+                } finally {
+                    // Rehabilitar botón después de la ejecución
+                    newExtractBtn.disabled = false;
+                    newExtractBtn.innerHTML = originalText;
+                }
             });
         }
 
@@ -6441,6 +6485,7 @@ class ChatbotDashboard {
 
     async extractProspectsFromChats() {
         try {
+            console.log('🔄 Iniciando extracción de prospectos...');
             this.showNotification('Extrayendo prospectos de los chats...', 'info');
             
             if (!window.prospectsService) {
@@ -6454,6 +6499,8 @@ class ChatbotDashboard {
                 this.showNotification('No hay chats para analizar. Primero carga los chats.', 'warning');
                 return;
             }
+            
+            console.log(`📊 Analizando ${chats.length} chats...`);
 
             // Extraer prospectos
             const result = await window.prospectsService.extractProspectsFromAllChats(chats, this.dataService);
