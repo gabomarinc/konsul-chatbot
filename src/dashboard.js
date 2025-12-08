@@ -2450,6 +2450,9 @@ class ChatbotDashboard {
                 console.warn('⚠️ Contenedor de campos personalizados no encontrado');
                 return;
             }
+            
+            // Mostrar mensaje de carga
+            container.innerHTML = '<p class="text-muted">Cargando campos personalizados...</p>';
 
             if (!chatId) {
                 container.innerHTML = '<p class="no-custom-fields">No se proporcionó un chatId válido</p>';
@@ -2667,10 +2670,16 @@ class ChatbotDashboard {
             this.renderCustomFields(container, availableFields, customFieldValues);
 
         } catch (error) {
-            console.error('❌ Error cargando campos personalizados:', error);
+            console.warn('⚠️ Error cargando campos personalizados (no crítico):', error.message);
             const container = document.getElementById(containerId);
             if (container) {
-                container.innerHTML = `<p class="error-custom-fields">Error al cargar campos personalizados: ${error.message}</p>`;
+                // Mostrar mensaje amigable sin bloquear la UI
+                container.innerHTML = `
+                    <div class="no-custom-fields">
+                        <i class="fas fa-info-circle"></i>
+                        <p>No se pudieron cargar los campos personalizados en este momento.</p>
+                    </div>
+                `;
             }
         }
     }

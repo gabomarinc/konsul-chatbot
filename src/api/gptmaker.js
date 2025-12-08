@@ -82,13 +82,20 @@ class GPTMakerAPI {
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`❌ Error HTTP ${response.status}: ${response.statusText}`);
-                console.error(`❌ Respuesta del servidor: ${errorText}`);
                 
                 // Si es error 401, el token puede estar expirado o ser inválido
                 if (response.status === 401) {
                     console.error('❌ Token inválido o expirado');
                     localStorage.removeItem('gptmaker_token');
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                // Para errores 404/500, solo loguear en modo debug (no crítico)
+                if (response.status === 404 || response.status === 500) {
+                    console.debug(`⚠️ Error HTTP ${response.status} en ${url} (no crítico)`);
+                } else {
+                    console.error(`❌ Error HTTP ${response.status}: ${response.statusText}`);
+                    console.error(`❌ Respuesta del servidor: ${errorText}`);
                 }
                 
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1717,16 +1724,26 @@ class GPTMakerAPI {
                             endpoint: endpoint
                         };
                     } else {
-                        console.log(`⚠️ Endpoint ${endpoint} respondió pero sin datos válidos:`, result);
+                        console.debug(`⚠️ Endpoint ${endpoint} respondió pero sin datos válidos`);
                     }
                 } catch (err) {
-                    console.log(`⚠️ Endpoint ${endpoint} falló:`, err.message);
-                    console.log(`   - Error completo:`, err);
+                    // Silenciar errores 404/500 - son esperados si el endpoint no existe
+                    if (err.message && !err.message.includes('401')) {
+                        console.debug(`⚠️ Endpoint ${endpoint} falló:`, err.message);
+                    }
                     continue;
                 }
             }
 
-            throw new Error('No se pudo obtener valores de campos personalizados del contacto');
+            // No lanzar error - simplemente retornar vacío
+            console.warn('⚠️ No se pudieron obtener campos personalizados de ningún endpoint disponible');
+            return {
+                success: false,
+                error: 'No se pudo obtener valores de campos personalizados del contacto',
+                data: {},
+                contactId: contactId,
+                source: 'error'
+            };
         } catch (error) {
             console.error('❌ Error obteniendo valores de campos personalizados:', error);
             return {
@@ -1876,12 +1893,22 @@ class GPTMakerAPI {
                         };
                     }
                 } catch (err) {
-                    console.log(`⚠️ Endpoint ${endpoint} no disponible:`, err.message);
+                    // Silenciar errores 404/500 - son esperados si el endpoint no existe
+                    if (err.message && !err.message.includes('401')) {
+                        console.debug(`⚠️ Endpoint ${endpoint} no disponible:`, err.message);
+                    }
                     continue;
                 }
             }
 
-            throw new Error('No se pudieron obtener contactos');
+            // No lanzar error - simplemente retornar vacío
+            console.warn('⚠️ No se pudieron obtener contactos de ningún endpoint disponible');
+            return {
+                success: false,
+                error: 'No se pudieron obtener contactos',
+                data: [],
+                source: 'error'
+            };
         } catch (error) {
             console.error('❌ Error obteniendo contactos:', error);
             return {
