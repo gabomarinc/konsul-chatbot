@@ -7,7 +7,15 @@ class GPTMakerAPI {
             this.token = token || window.gptmakerConfig.getToken();
         } else {
             // Fallback a configuración manual
-            this.baseURL = 'https://api.gptmaker.ai';
+            // En producción/preview, usar proxy de Vercel para evitar CORS
+            // En localhost, usar directamente la API (Vite tiene proxy configurado)
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                // Desarrollo local: usar directamente (Vite proxy maneja CORS)
+                this.baseURL = 'https://api.gptmaker.ai';
+            } else {
+                // Producción/Preview: usar proxy de Vercel
+                this.baseURL = '/api';
+            }
             this.token = token || this.getTokenFromStorage() || this.getTokenFromConfig();
         }
         
