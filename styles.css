@@ -1872,11 +1872,14 @@ body {
     background: var(--primary-color);
     color: white;
     border-color: var(--primary-color);
+    position: relative;
+    box-shadow: 0 0 0 2px rgba(170, 226, 215, 0.5);
 }
 
 .btn-primary:hover {
     background: var(--primary-dark);
     border-color: var(--primary-dark);
+    box-shadow: 0 0 0 2px rgba(170, 226, 215, 0.7);
 }
 
 .btn-outline {
