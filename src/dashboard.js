@@ -2087,10 +2087,16 @@ class ChatbotDashboard {
         // Add assume button to chat details only if it doesn't exist
         const chatDetails = document.getElementById('chatDetails');
         if (chatDetails && !document.querySelector('.assume-chat-btn')) {
+            // Crear contenedor para el botón con el mismo padding que message-input-container
+            const assumeContainer = document.createElement('div');
+            assumeContainer.className = 'assume-chat-container';
+            
             const assumeBtn = document.createElement('button');
             assumeBtn.className = 'assume-chat-btn';
             assumeBtn.innerHTML = '<i class="fas fa-user-check"></i> Asumir Chat';
-            chatDetails.appendChild(assumeBtn);
+            
+            assumeContainer.appendChild(assumeBtn);
+            chatDetails.appendChild(assumeContainer);
 
             assumeBtn.addEventListener('click', () => this.assumeChat());
         }
