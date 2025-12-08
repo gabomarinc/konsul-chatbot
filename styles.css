@@ -476,6 +476,36 @@ body {
     color: white !important;
 }
 
+/* Botón Sincronizar en sección de Prospectos - texto blanco */
+#refreshProspectsBtn.btn-primary {
+    color: white !important;
+}
+
+#refreshProspectsBtn.btn-primary i {
+    color: white !important;
+}
+
+/* Botón de Extraer Prospectos más grande (25% más grande) */
+.extract-prospects-btn-large {
+    padding: 0.625rem 1.25rem !important; /* 25% más grande que 0.5rem 1rem */
+    font-size: 1.09375rem !important; /* 25% más grande que 0.875rem */
+    min-height: calc(1.25 * 2.25rem); /* Asegurar altura 25% mayor */
+    color: white !important; /* Texto en blanco */
+    animation: syncPulse 2s ease-in-out infinite; /* Animación de sombreado pulsante */
+    background: var(--primary-color) !important; /* Fondo verde */
+    border-color: var(--primary-color) !important;
+}
+
+/* Asegurar que el icono también sea blanco */
+.extract-prospects-btn-large i {
+    color: white !important;
+}
+
+.extract-prospects-btn-large:hover {
+    background: var(--primary-dark) !important;
+    border-color: var(--primary-dark) !important;
+}
+
 /* Animación de sombreado pulsante para el botón de sincronizar */
 @keyframes syncPulse {
     0% {
@@ -1242,8 +1272,9 @@ body {
     display: grid;
     grid-template-columns: 1fr 2fr;
     gap: 2rem;
-    height: 100vh;
-    min-height: 600px;
+    max-height: calc(100vh - 250px); /* Reducir altura para no interferir con scroll */
+    min-height: 500px;
+    height: auto;
 }
 
 .chats-list {
@@ -1459,6 +1490,8 @@ body {
     border-radius: var(--radius-lg);
     display: flex;
     flex-direction: column;
+    max-height: calc(100vh - 250px); /* Limitar altura máxima */
+    overflow: hidden; /* Asegurar que el scroll sea interno */
 }
 
 .chat-welcome {
@@ -1869,11 +1902,14 @@ body {
     background: var(--primary-color);
     color: white;
     border-color: var(--primary-color);
+    position: relative;
+    box-shadow: 0 0 0 2px rgba(170, 226, 215, 0.5);
 }
 
 .btn-primary:hover {
     background: var(--primary-dark);
     border-color: var(--primary-dark);
+    box-shadow: 0 0 0 2px rgba(170, 226, 215, 0.7);
 }
 
 .btn-outline {
@@ -2600,8 +2636,9 @@ body {
 .chat-details {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    max-height: calc(100vh - 250px); /* Limitar altura máxima */
     min-height: 0;
+    overflow: hidden; /* Asegurar que el scroll sea interno */
 }
 
 .chat-header-details {
@@ -2617,8 +2654,10 @@ body {
     flex: 1;
     padding: 1rem;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
+    min-height: 0; /* Importante para que funcione el scroll */
     gap: 1rem;
     min-height: 0;
     scroll-behavior: smooth;
@@ -3034,7 +3073,14 @@ body {
     }
 }
 
-/* Assume Chat Button */
+/* Assume Chat Container - Mismo padding que message-input-container */
+.assume-chat-container {
+    padding: 0 1rem 1rem 1rem;
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+/* Assume Chat Button - Diseño consistente con otros botones del chat */
 .assume-chat-btn {
     width: 100%;
     padding: 0.75rem 1.5rem;
@@ -3047,10 +3093,11 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
     font-weight: 600;
-    font-size: 0.875rem;
-    margin-top: 1rem;
+    font-size: 0.9375rem;
+    margin: 0;
+    box-shadow: 0 2px 8px rgba(39, 190, 165, 0.2);
     flex-shrink: 0;
 }
 
@@ -3058,6 +3105,11 @@ body {
     background: linear-gradient(135deg, #27BEA5, #1ea892);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(39, 190, 165, 0.3);
+}
+
+.assume-chat-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(39, 190, 165, 0.25);
 }
 
 .assume-chat-btn i {
@@ -4227,6 +4279,91 @@ body {
 }
 
 /* ===== PROSPECTOS ===== */
+.prospects-filters {
+    display: flex !important;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    margin-top: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.prospects-filters .search-box {
+    flex: 1;
+    min-width: 300px;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.prospects-filters .search-box i {
+    position: absolute;
+    left: 1rem;
+    color: var(--text-secondary);
+    z-index: 1;
+}
+
+.prospects-filters .search-input {
+    width: 100%;
+    padding: 0.75rem 1rem 0.75rem 2.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    transition: all 0.2s ease;
+}
+
+.prospects-filters .search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+}
+
+.prospects-filters .clear-search-btn {
+    position: absolute;
+    right: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    z-index: 1;
+}
+
+.prospects-filters .clear-search-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.prospects-filters .filter-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.prospects-filters .filter-input {
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    transition: all 0.2s ease;
+}
+
+.prospects-filters .filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+}
+
 .prospects-table-container {
     background: var(--bg-primary);
     border-radius: var(--radius-lg);
@@ -4329,6 +4466,150 @@ body {
 .no-prospects h3 {
     margin-bottom: 0.5rem;
     color: var(--text-primary);
+}
+
+/* Paginación de Prospectos */
+.prospects-pagination {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.pagination-info {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.pagination-buttons .btn {
+    min-width: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.pagination-buttons .btn.disabled,
+.pagination-buttons .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.page-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.page-input-group span {
+    white-space: nowrap;
+}
+
+.page-input {
+    width: 60px;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.page-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+}
+
+.page-input::-webkit-inner-spin-button,
+.page-input::-webkit-outer-spin-button {
+    opacity: 1;
+}
+
+.items-per-page {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.items-per-page label {
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.items-per-page-select {
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 12px;
+}
+
+.items-per-page-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+}
+
+.items-per-page-select:hover {
+    border-color: var(--primary-color);
+}
+
+/* Responsive para paginación */
+@media (max-width: 768px) {
+    .pagination-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pagination-buttons {
+        justify-content: center;
+    }
+
+    .items-per-page {
+        justify-content: center;
+    }
+
+    .page-input-group {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
 }
 
 /* Modal de Prospecto */
@@ -4535,6 +4816,156 @@ body {
 /* Estilos para campos personalizados */
 .custom-fields-container {
     min-height: 60px;
+}
+
+/* Estilos para botones grandes de campos personalizados */
+.custom-fields-buttons-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.custom-fields-buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.custom-field-button {
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
+    width: 100%;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.custom-field-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.custom-field-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary-color);
+}
+
+.custom-field-button:hover::before {
+    opacity: 0.05;
+}
+
+.custom-field-button.selected {
+    background: linear-gradient(135deg, var(--primary-color-light) 0%, rgba(20, 184, 166, 0.1) 100%);
+    border-color: var(--primary-color);
+    border-width: 2px;
+    box-shadow: 0 4px 16px rgba(20, 184, 166, 0.2);
+}
+
+.custom-field-button.selected::before {
+    opacity: 0.1;
+}
+
+.custom-field-button-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+.custom-field-button-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    transition: all 0.3s ease;
+}
+
+.custom-field-button.selected .custom-field-button-icon {
+    background: var(--primary-color);
+    color: white;
+    transform: scale(1.1);
+}
+
+.custom-field-button-icon i {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    transition: all 0.3s ease;
+}
+
+.custom-field-button.selected .custom-field-button-icon i {
+    color: white;
+}
+
+.custom-field-button-text {
+    flex: 1;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+    transition: color 0.3s ease;
+}
+
+.custom-field-button.selected .custom-field-button-text {
+    color: var(--primary-dark);
+    font-weight: 600;
+}
+
+.custom-fields-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.save-custom-fields-btn {
+    min-width: 200px;
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+    transition: all 0.3s ease;
+}
+
+.save-custom-fields-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(20, 184, 166, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .custom-fields-buttons-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .custom-field-button {
+        min-height: 70px;
+        padding: 1rem 1.25rem;
+    }
 }
 
 .loading-custom-fields {

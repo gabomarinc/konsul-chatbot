@@ -109,3 +109,4 @@ Nombre: imagenes_urls
 4. Campo: `fecha_extraccion` (fecha)
 
 **¡Listo para codificar!** ✅
+

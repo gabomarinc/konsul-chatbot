@@ -12,6 +12,8 @@ window.GPTMAKER_CONFIG = {
 window.dashboardInitialized = false;
 
 // Función de verificación de autenticación
+// NOTA: Esta función NO redirige - el routeGuard se encarga de eso
+// Esta función solo verifica y retorna el estado
 function checkAuthentication() {
     // Verificar si estamos en la página de login
     if (window.location.pathname.includes('login.html')) {
@@ -36,17 +38,9 @@ function checkAuthentication() {
     const isAuthenticated = window.authService.isAuthenticated();
     console.log('🔐 Estado de autenticación:', isAuthenticated ? 'Autenticado' : 'No autenticado');
     
-    if (isAuthenticated) {
-        console.log('✅ Usuario autenticado');
-        return true;
-    } else {
-        console.log('❌ Usuario no autenticado, redirigiendo a login...');
-        // Solo redirigir si no estamos ya en login
-        if (!window.location.pathname.includes('login.html')) {
-            window.location.href = 'login.html';
-        }
-        return false;
-    }
+    // NO redirigir aquí - el routeGuard se encarga de las redirecciones
+    // Solo retornar el estado
+    return isAuthenticated;
 }
 
 // Función de inicialización optimizada
@@ -104,6 +98,9 @@ function initializeDashboard() {
         
     } catch (error) {
         console.error('❌ Error inicializando dashboard:', error);
+        // Asegurar que el dashboard se muestre incluso con errores
+        // El routeGuard no debe redirigir si hay un error de inicialización
+        console.warn('⚠️ Continuando con dashboard en modo degradado');
     }
 }
 

@@ -153,3 +153,4 @@ Si eliges **localStorage**:
 2. ¡Listo para codificar inmediatamente!
 
 **¿Cuál prefieres?** 🎯
+

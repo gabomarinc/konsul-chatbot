@@ -84,3 +84,4 @@ Una vez que hayas creado los campos, el código se actualizará automáticamente
 - Esto es más eficiente que guardar los archivos directamente en Airtable
 - Las URLs apuntan a los archivos almacenados en los servidores de GPTMaker
 
+

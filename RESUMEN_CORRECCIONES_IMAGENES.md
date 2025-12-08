@@ -46,3 +46,4 @@ Si las imágenes del usuario aún no se muestran:
    - `🖼️` - Muestra imágenes encontradas
 
 **Comparte lo que aparece en la consola** para ver exactamente qué campos tiene el mensaje del usuario con la imagen.
+

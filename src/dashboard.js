@@ -40,6 +40,15 @@ class ChatbotDashboard {
         this.headerNotifications = [];
         this.unreadNotificationsCount = 0;
         
+        // Sistema de paginación para prospectos
+        this.prospectsPagination = {
+            currentPage: 1,
+            itemsPerPage: 50, // Por defecto 50 items por página (configurable)
+            totalPages: 1,
+            filteredProspects: [], // Prospectos después de aplicar filtros
+            totalFiltered: 0
+        };
+        
         this.init();
     }
     // Espera a que window.teamManager esté disponible
@@ -55,18 +64,86 @@ class ChatbotDashboard {
     }
 
     async init() {
-        this.setupEventListeners();
-        this.initializeAPI();
-        await this.loadRealData();
-        this.loadTheme();
-        this.loadBrandSettings();
-        this.setupMobileMenu();
-        this.setupChatsManagement();
-        this.setupAgentsManagement();
-        this.setupAttendancesManagement();
-        this.setupProspectsManagement();
-        this.setupHeaderNotifications();
-        this.setupNotificationsAndPolling();
+        try {
+            this.setupEventListeners();
+            this.initializeAPI();
+            // Cargar token desde Airtable antes de cargar datos
+            await this.loadTokenFromAirtable();
+            await this.loadRealData();
+            this.loadTheme();
+            this.loadBrandSettings();
+            this.setupMobileMenu();
+            this.setupChatsManagement();
+            this.setupAgentsManagement();
+            this.setupAttendancesManagement();
+            this.setupProspectsManagement();
+            this.setupHeaderNotifications();
+            this.setupNotificationsAndPolling();
+        } catch (error) {
+            console.error('❌ Error en inicialización del dashboard:', error);
+            // Asegurar que el dashboard se muestre incluso con errores
+            // Continuar con inicialización básica
+            try {
+                this.loadTheme();
+                this.loadBrandSettings();
+                this.setupMobileMenu();
+            } catch (initError) {
+                console.error('❌ Error en inicialización básica:', initError);
+            }
+        }
+    }
+
+    /**
+     * Carga el token de API desde Airtable al iniciar
+     * Esto asegura que tanto Preview como Production usen el mismo token
+     */
+    async loadTokenFromAirtable() {
+        try {
+            const currentUser = this.getCurrentUser();
+            if (!currentUser) {
+                console.log('ℹ️ No hay usuario autenticado, saltando carga de token desde Airtable');
+                return;
+            }
+
+            if (!window.airtableService || !window.authService || !window.authService.useAirtable) {
+                console.log('ℹ️ Airtable no está configurado, usando token de localStorage si existe');
+                return;
+            }
+
+            console.log('🗄️ Cargando token de API desde Airtable...');
+            const userResult = await window.airtableService.getUserByEmail(currentUser.email);
+            
+            if (userResult.success && userResult.user && userResult.user.token_api) {
+                const token = userResult.user.token_api;
+                
+                // Guardar en localStorage para que la API lo use
+                localStorage.setItem('gptmaker_token', token);
+                localStorage.setItem('apiToken', token);
+                
+                // Actualizar configuración global
+                if (window.gptmakerConfig) {
+                    window.gptmakerConfig.setToken(token);
+                }
+                if (window.GPTMAKER_CONFIG) {
+                    window.GPTMAKER_CONFIG.token = token;
+                }
+                
+                // Actualizar la instancia de API si ya existe
+                if (this.api) {
+                    this.api.setToken(token);
+                }
+                if (this.dataService && this.dataService.api) {
+                    this.dataService.api.setToken(token);
+                }
+                
+                console.log('✅ Token de API cargado desde Airtable y sincronizado');
+            } else {
+                console.log('ℹ️ No se encontró token en Airtable para este usuario');
+            }
+        } catch (error) {
+            console.warn('⚠️ Error cargando token desde Airtable:', error.message);
+            console.log('ℹ️ Continuando con token de localStorage si existe');
+        }
     }
 
     async initializeAPI() {
@@ -165,7 +242,23 @@ class ChatbotDashboard {
 
         } catch (error) {
             console.error('❌ Error cargando datos reales:', error);
-            this.showNotification('Error al cargar los datos', 'error');
+            // No bloquear el dashboard - mostrar con datos vacíos
+            this.dashboardData = {
+                chats: [],
+                agents: [],
+                team: [],
+                stats: this.calculateStats([], [], []),
+                apiHealth: false
+            };
+            
+            // Actualizar UI con datos vacíos para que el dashboard se muestre
+            this.updateOverviewStats();
+            this.updateChatsList();
+            this.updateAgentsList();
+            this.updateTeamList();
+            
+            // Mostrar notificación pero no bloquear
+            this.showNotification('Algunos datos no se pudieron cargar. El dashboard está disponible con funcionalidad limitada.', 'warning');
         }
     }
 
@@ -2003,11 +2096,16 @@ class ChatbotDashboard {
         // Add assume button to chat details only if it doesn't exist
         const chatDetails = document.getElementById('chatDetails');
         if (chatDetails && !document.querySelector('.assume-chat-btn')) {
+            // Crear contenedor para el botón con el mismo padding que message-input-container
+            const assumeContainer = document.createElement('div');
+            assumeContainer.className = 'assume-chat-container';
+            
             const assumeBtn = document.createElement('button');
-            assumeBtn.className = 'btn btn-primary assume-chat-btn';
-            assumeBtn.innerHTML = '<i class="fas fa-user"></i> Asumir Chat';
-            assumeBtn.style.marginBottom = '1rem';
-            chatDetails.appendChild(assumeBtn);
+            assumeBtn.className = 'assume-chat-btn';
+            assumeBtn.innerHTML = '<i class="fas fa-user-check"></i> Asumir Chat';
+            
+            assumeContainer.appendChild(assumeBtn);
+            chatDetails.appendChild(assumeContainer);
 
             assumeBtn.addEventListener('click', () => this.assumeChat());
         }
@@ -2386,7 +2484,7 @@ class ChatbotDashboard {
     }
 
     /**
-     * Carga y muestra los campos personalizados de GPTMaker para un prospecto
+     * Carga y muestra los campos personalizados de GPTMaker para un prospecto usando su chatId
      */
     async loadProspectCustomFields(chatId, containerId) {
         try {
@@ -2395,22 +2493,17 @@ class ChatbotDashboard {
                 console.warn('⚠️ Contenedor de campos personalizados no encontrado');
                 return;
             }
+            
+            // Mostrar mensaje de carga
+            container.innerHTML = '<p class="text-muted">Cargando campos personalizados...</p>';
 
-            console.log(`📋 Cargando campos personalizados para chat: ${chatId}`);
-
-            // Buscar el chat para obtener el recipient (contactId)
-            let chat = this.dashboardData.chats?.find(c => c.id === chatId);
-            if (!chat) {
-                // Intentar cargar el chat si no está disponible
-                console.log('⚠️ Chat no encontrado en datos, intentando cargar...');
-                await this.loadRealData();
-                const chatAfterLoad = this.dashboardData.chats?.find(c => c.id === chatId);
-                if (!chatAfterLoad) {
-                    container.innerHTML = '<p class="no-custom-fields">No se encontró información del chat</p>';
-                    return;
-                }
-                chat = chatAfterLoad;
+            if (!chatId) {
+                container.innerHTML = '<p class="no-custom-fields">No se proporcionó un chatId válido</p>';
+                return;
             }
+
+            console.log(`📋 ===== CARGANDO CAMPOS PERSONALIZADOS =====`);
+            console.log(`📋 ChatId: ${chatId}`);
 
             // Obtener API
             const api = window.gptmakerAPI || this.api || (this.dataService && this.dataService.api);
@@ -2419,380 +2512,248 @@ class ChatbotDashboard {
                 return;
             }
 
-            // Obtener el nombre del prospecto desde el chat para buscar el contacto
-            const prospectName = (chat.name || chat.userName || '').toLowerCase().trim();
-            const contactId = chat.recipient || chat.userId || chatId;
-            console.log(`🔍 Buscando campos personalizados para: ${prospectName || 'prospecto sin nombre'}`);
-            console.log(`🔍 ContactId disponible: ${contactId || 'no disponible'}`);
-
-            // Obtener campos personalizados disponibles
-            const fieldsResult = await api.getCustomFields();
-            const availableFields = fieldsResult.success ? fieldsResult.data : [];
-            console.log('📊 Campos disponibles:', availableFields.length);
-            
-            // Obtener valores de campos personalizados buscando el contacto
-            let customFieldValues = {};
-            
-            console.log('🔍 Obteniendo todos los contactos y buscando por nombre o ID...');
-            try {
-                const contactsResult = await api.getAllContacts();
-                if (contactsResult.success && contactsResult.data && contactsResult.data.length > 0) {
-                    console.log(`📋 ${contactsResult.data.length} contactos obtenidos`);
-                    
-                    // Buscar contacto por nombre (comparación flexible) o por ID
-                    const matchingContact = contactsResult.data.find(c => {
-                        const contactName = (c.name || c.fullName || c.userName || (c.firstName + ' ' + c.lastName) || '').toLowerCase().trim();
-                        const searchName = prospectName;
-                        
-                        // Comparación por nombre (exacta, parcial, inversa)
-                        const nameMatches = searchName && contactName && (
-                            contactName === searchName || 
-                            contactName.includes(searchName) || 
-                            searchName.includes(contactName) ||
-                            contactName.split(' ')[0] === searchName.split(' ')[0] // Primer nombre
-                        );
-                        
-                        // También intentar por ID
-                        const idMatches = contactId && (
-                            c.id === contactId ||
-                            c.recipient === contactId ||
-                            c.userId === contactId ||
-                            String(c.id).includes(String(contactId)) ||
-                            String(contactId).includes(String(c.id))
-                        );
-                        
-                        return nameMatches || idMatches;
-                    });
-                    
-                    if (matchingContact) {
-                        console.log('✅ Contacto encontrado:', matchingContact.name || matchingContact.fullName);
-                        console.log('📊 Estructura completa del contacto:', JSON.stringify(matchingContact, null, 2));
-                        
-                        // Buscar campos personalizados en cualquier estructura posible
-                        customFieldValues = matchingContact.customFields || 
-                                          matchingContact.custom_fields || 
-                                          matchingContact.fields ||
-                                          matchingContact.customFieldValues ||
-                                          matchingContact.user?.customFields ||
-                                          matchingContact.user?.custom_fields ||
-                                          {};
-                        
-                        // Si no se encontraron directamente, buscar por jsonName de cada campo disponible
-                        if (Object.keys(customFieldValues).length === 0 && availableFields.length > 0) {
-                            console.log('🔍 Buscando campos personalizados por jsonName en toda la estructura...');
-                            availableFields.forEach(field => {
-                                const jsonName = field.jsonName || field.name;
-                                if (jsonName && matchingContact[jsonName] !== undefined) {
-                                    customFieldValues[jsonName] = matchingContact[jsonName];
-                                }
-                                // También buscar variaciones del nombre
-                                const variations = [
-                                    jsonName,
-                                    jsonName.toLowerCase(),
-                                    jsonName.replace(/([A-Z])/g, '_$1').toLowerCase(),
-                                    field.id,
-                                    field.name
-                                ];
-                                variations.forEach(variation => {
-                                    if (variation && matchingContact[variation] !== undefined) {
-                                        customFieldValues[jsonName] = matchingContact[variation];
-                                    }
-                                });
-                            });
-                        }
-                    } else {
-                        console.log('⚠️ Contacto no encontrado. Buscando por contactId...');
-                        // Intentar buscar por contactId como último recurso
-                        if (contactId) {
-                            try {
-                                const valuesResult = await api.getContactCustomFields(contactId);
-                                if (valuesResult.success && valuesResult.data) {
-                                    customFieldValues = valuesResult.data;
-                                }
-                            } catch (err) {
-                                console.log('⚠️ Error obteniendo campos por ID:', err.message);
-                            }
-                        }
-                    }
-                }
-            } catch (err) {
-                console.log('⚠️ Error obteniendo contactos:', err.message);
-            }
-            
-            console.log('📊 Valores obtenidos:', Object.keys(customFieldValues).length);
-            if (Object.keys(customFieldValues).length > 0) {
-                console.log('📋 Valores encontrados:', customFieldValues);
-            } else {
-                console.log('⚠️ No se encontraron valores de campos personalizados');
-            }
-
-            // Renderizar campos personalizados
-            this.renderCustomFields(container, availableFields, customFieldValues);
-
-        } catch (error) {
-            console.error('❌ Error cargando campos personalizados:', error);
-            const container = document.getElementById(containerId);
-            if (container) {
-                container.innerHTML = `<p class="error-custom-fields">Error al cargar campos personalizados: ${error.message}</p>`;
-            }
-        }
-    }
-
-    /**
-     * Renderiza los campos personalizados en el contenedor
-     */
-    renderCustomFields(container, availableFields, customFieldValues) {
-        if (!container) return;
-
-        // Filtrar campos que tienen valores
-        const fieldsWithValues = availableFields.filter(field => {
-            const jsonName = field.jsonName;
-            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name];
-            return value && value !== '' && value !== null && value !== undefined;
-        });
-
-        if (fieldsWithValues.length === 0) {
-            container.innerHTML = `
-                <div class="no-custom-fields">
-                    <i class="fas fa-info-circle"></i>
-                    <p>Este contacto no tiene campos personalizados configurados aún.</p>
-                </div>
-            `;
-            return;
-        }
-
-        // Mapeo de nombres de campos a iconos
-        const fieldIcons = {
-            'zonaDeInteres': 'fas fa-map-marker-alt',
-            'perfilLaboral': 'fas fa-briefcase',
-            'dui': 'fas fa-id-card',
-            'constanciaDeSalario': 'fas fa-file-invoice-dollar',
-            'comprobanteDeAfp': 'fas fa-file-contract',
-            'declaracionDeRenta': 'fas fa-file-alt',
-            'comprobanteDeDomicilio': 'fas fa-home',
-            'declaracionesDeImpuestos(1–2Años)': 'fas fa-file-invoice',
-            'estadosDeCuentaBancariosPersonalesODelNegocio': 'fas fa-university',
-            'constanciasDeIngresoOContratosConClientes': 'fas fa-file-signature',
-            'modeloDeCasaDeInteres': 'fas fa-building'
-        };
-
-        const fieldsHTML = fieldsWithValues.map(field => {
-            const jsonName = field.jsonName;
-            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name] || '';
-            const icon = fieldIcons[jsonName] || 'fas fa-tag';
-            
-            // Verificar si el valor es una URL
-            const isUrl = typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
-            const isJson = typeof value === 'string' && (value.trim().startsWith('[') || value.trim().startsWith('{'));
-
-            let valueDisplay = '';
-            if (isJson) {
-                try {
-                    const parsed = JSON.parse(value);
-                    if (Array.isArray(parsed)) {
-                        valueDisplay = parsed.map(item => {
-                            const itemUrl = typeof item === 'string' ? item : (item.url || item);
-                            if (itemUrl && (itemUrl.startsWith('http://') || itemUrl.startsWith('https://'))) {
-                                return `<a href="${itemUrl}" target="_blank" class="custom-field-link">${itemUrl}</a>`;
-                            }
-                            return this.escapeHtml(String(item));
-                        }).join('<br>');
-                    } else {
-                        valueDisplay = this.escapeHtml(JSON.stringify(parsed, null, 2));
-                    }
-                } catch (e) {
-                    valueDisplay = this.escapeHtml(String(value));
-                }
-            } else if (isUrl) {
-                valueDisplay = `<a href="${value}" target="_blank" class="custom-field-link">${value}</a>`;
-            } else {
-                valueDisplay = this.escapeHtml(String(value));
-            }
-
-            return `
-                <div class="custom-field-item">
-                    <label>
-                        <i class="${icon}"></i>
-                        ${this.escapeHtml(field.name)}
-                    </label>
-                    <div class="custom-field-value">${valueDisplay}</div>
-                </div>
-            `;
-        }).join('');
-
-        container.innerHTML = `
-            <div class="custom-fields-grid">
-                ${fieldsHTML}
-            </div>
-        `;
-    }
-
-    /**
-     * Carga y muestra los campos personalizados de GPTMaker para un prospecto
-     */
-    async loadProspectCustomFields(chatId, containerId) {
-        try {
-            const container = document.getElementById(containerId);
-            if (!container) {
-                console.warn('⚠️ Contenedor de campos personalizados no encontrado');
-                return;
-            }
-
-            console.log(`📋 Cargando campos personalizados para chat: ${chatId}`);
-
-            // Buscar el chat para obtener el recipient (contactId)
+            // Buscar el chat para obtener el contactId
             let chat = this.dashboardData.chats?.find(c => c.id === chatId);
             if (!chat) {
                 // Intentar cargar el chat si no está disponible
                 console.log('⚠️ Chat no encontrado en datos, intentando cargar...');
                 await this.loadRealData();
                 chat = this.dashboardData.chats?.find(c => c.id === chatId);
-                if (!chat) {
-                    container.innerHTML = '<p class="no-custom-fields">No se encontró información del chat</p>';
-                    return;
-                }
             }
 
-            // Obtener API
-            const api = window.gptmakerAPI || this.api || (this.dataService && this.dataService.api);
-            if (!api) {
-                container.innerHTML = '<p class="no-custom-fields">API de GPTMaker no disponible</p>';
-                return;
-            }
+            // Obtener el contactId del chat
+            // El contactId puede estar en diferentes propiedades según la estructura de GPTMaker
+            const contactId = chat?.recipient || 
+                             chat?.userId || 
+                             chat?.contactId || 
+                             chat?.contact?.id ||
+                             chatId; // Usar chatId como fallback
 
-            // Obtener el nombre del prospecto desde el chat para buscar el contacto
-            const prospectName = (chat.name || chat.userName || '').toLowerCase().trim();
-            const contactId = chat.recipient || chat.userId || chatId;
-            console.log(`🔍 Buscando campos personalizados para: ${prospectName || 'prospecto sin nombre'}`);
-            console.log(`🔍 ContactId disponible: ${contactId || 'no disponible'}`);
+            console.log(`🔍 ContactId obtenido: ${contactId}`);
+            console.log(`📊 Estructura del chat:`, {
+                id: chat?.id,
+                recipient: chat?.recipient,
+                userId: chat?.userId,
+                contactId: chat?.contactId,
+                contact: chat?.contact
+            });
 
             // Obtener campos personalizados disponibles
             const fieldsResult = await api.getCustomFields();
             const availableFields = fieldsResult.success ? fieldsResult.data : [];
-            console.log('📊 Campos disponibles:', availableFields.length);
+            console.log(`📊 ${availableFields.length} campos personalizados disponibles`);
             
-            // Obtener valores de campos personalizados buscando el contacto
+            // Obtener prospecto desde Airtable para cargar campos_solicitados guardados
+            let savedRequestedFields = {};
+            if (window.airtableService && chatId) {
+                try {
+                    const prospectResult = await window.airtableService.getProspectByChatId(chatId);
+                    if (prospectResult.success && prospectResult.prospect && prospectResult.prospect.campos_solicitados) {
+                        // Parsear campos_solicitados (puede ser JSON string o objeto)
+                        const camposSolicitados = prospectResult.prospect.campos_solicitados;
+                        if (typeof camposSolicitados === 'string') {
+                            try {
+                                savedRequestedFields = JSON.parse(camposSolicitados);
+                            } catch (e) {
+                                console.warn('⚠️ Error parseando campos_solicitados:', e);
+                            }
+                        } else if (typeof camposSolicitados === 'object') {
+                            savedRequestedFields = camposSolicitados;
+                        }
+                        console.log('📋 Campos solicitados guardados:', savedRequestedFields);
+                    }
+                } catch (err) {
+                    console.warn('⚠️ Error obteniendo prospecto para campos_solicitados:', err);
+                }
+            }
+
+            // Obtener valores de campos personalizados del contacto usando el chatId
             let customFieldValues = {};
             
-            console.log('🔍 Obteniendo todos los contactos y buscando por nombre o ID...');
-            try {
-                const contactsResult = await api.getAllContacts();
-                if (contactsResult.success && contactsResult.data && contactsResult.data.length > 0) {
-                    console.log(`📋 ${contactsResult.data.length} contactos obtenidos`);
-                    
-                    // Buscar contacto por nombre (comparación flexible) o por ID
-                    const matchingContact = contactsResult.data.find(c => {
-                        const contactName = (c.name || c.fullName || c.userName || (c.firstName + ' ' + c.lastName) || '').toLowerCase().trim();
-                        const searchName = prospectName;
-                        
-                        // Comparación por nombre (exacta, parcial, inversa)
-                        const nameMatches = searchName && contactName && (
-                            contactName === searchName || 
-                            contactName.includes(searchName) || 
-                            searchName.includes(contactName) ||
-                            contactName.split(' ')[0] === searchName.split(' ')[0] // Primer nombre
-                        );
-                        
-                        // También intentar por ID
-                        const idMatches = contactId && (
-                            c.id === contactId ||
-                            c.recipient === contactId ||
-                            c.userId === contactId ||
-                            String(c.id).includes(String(contactId)) ||
-                            String(contactId).includes(String(c.id))
-                        );
-                        
-                        return nameMatches || idMatches;
+            // MÉTODO 1: Buscar campos personalizados directamente en el chat
+            console.log(`🔍 ===== MÉTODO 1: Buscando campos personalizados en el chat =====`);
+            if (chat) {
+                console.log(`📊 Estructura completa del chat:`, JSON.stringify(chat, null, 2));
+                console.log(`📋 Claves disponibles en el chat:`, Object.keys(chat));
+                
+                // Buscar campos personalizados en diferentes ubicaciones del chat
+                customFieldValues = chat.customFields || 
+                                  chat.custom_fields || 
+                                  chat.fields ||
+                                  chat.customFieldValues ||
+                                  chat.contact?.customFields ||
+                                  chat.contact?.custom_fields ||
+                                  {};
+                
+                console.log(`📋 Campos encontrados directamente en chat:`, Object.keys(customFieldValues).length);
+                
+                // Si no se encontraron directamente, buscar por jsonName de cada campo disponible
+                if (Object.keys(customFieldValues).length === 0 && availableFields.length > 0) {
+                    console.log(`🔍 Buscando campos por jsonName en estructura del chat...`);
+                    availableFields.forEach(field => {
+                        const jsonName = field.jsonName || field.name;
+                        // Buscar en el chat y en chat.contact
+                        const locations = [chat, chat?.contact].filter(Boolean);
+                        locations.forEach(location => {
+                            if (location[jsonName] !== undefined) {
+                                customFieldValues[jsonName] = location[jsonName];
+                                console.log(`   ✅ Encontrado: ${jsonName} = ${location[jsonName]}`);
+                            }
+                        });
                     });
+                }
+                
+                if (Object.keys(customFieldValues).length > 0) {
+                    console.log(`✅ ${Object.keys(customFieldValues).length} campos personalizados encontrados en el chat`);
+                }
+            }
+            console.log(`🔍 ===== FIN MÉTODO 1 =====`);
+            
+            // MÉTODO 2: Intentar obtener el chat completo desde la API
+            if (Object.keys(customFieldValues).length === 0) {
+                try {
+                    console.log(`🔍 MÉTODO 2: Obteniendo chat completo desde API...`);
+                    const chatResult = await api.request(`/v2/chat/${chatId}`);
                     
-                    if (matchingContact) {
-                        console.log('✅ Contacto encontrado:', matchingContact.name || matchingContact.fullName);
-                        console.log('📊 Estructura completa del contacto:', JSON.stringify(matchingContact, null, 2));
+                    if (chatResult.success && chatResult.data) {
+                        const fullChat = chatResult.data;
+                        console.log(`📊 Chat completo obtenido:`, JSON.stringify(fullChat, null, 2));
                         
-                        // Buscar campos personalizados en cualquier estructura posible
-                        customFieldValues = matchingContact.customFields || 
-                                          matchingContact.custom_fields || 
-                                          matchingContact.fields ||
-                                          matchingContact.customFieldValues ||
-                                          matchingContact.user?.customFields ||
-                                          matchingContact.user?.custom_fields ||
+                        // Buscar campos personalizados en el chat completo
+                        customFieldValues = fullChat.customFields || 
+                                          fullChat.custom_fields || 
+                                          fullChat.fields ||
+                                          fullChat.customFieldValues ||
+                                          fullChat.contact?.customFields ||
+                                          fullChat.contact?.custom_fields ||
                                           {};
                         
-                        // Si no se encontraron directamente, buscar por jsonName de cada campo disponible
+                        // Si no se encontraron, buscar por jsonName
                         if (Object.keys(customFieldValues).length === 0 && availableFields.length > 0) {
-                            console.log('🔍 Buscando campos personalizados por jsonName en toda la estructura...');
                             availableFields.forEach(field => {
                                 const jsonName = field.jsonName || field.name;
-                                if (jsonName && matchingContact[jsonName] !== undefined) {
-                                    customFieldValues[jsonName] = matchingContact[jsonName];
-                                }
-                                // También buscar variaciones del nombre
-                                const variations = [
-                                    jsonName,
-                                    jsonName.toLowerCase(),
-                                    jsonName.replace(/([A-Z])/g, '_$1').toLowerCase(),
-                                    field.id,
-                                    field.name
-                                ];
-                                variations.forEach(variation => {
-                                    if (variation && matchingContact[variation] !== undefined) {
-                                        customFieldValues[jsonName] = matchingContact[variation];
+                                const locations = [fullChat, fullChat?.contact].filter(Boolean);
+                                locations.forEach(location => {
+                                    if (location[jsonName] !== undefined) {
+                                        customFieldValues[jsonName] = location[jsonName];
                                     }
                                 });
                             });
                         }
-                    } else {
-                        console.log('⚠️ Contacto no encontrado. Buscando por contactId...');
-                        // Intentar buscar por contactId como último recurso
-                        if (contactId) {
-                            try {
-                                const valuesResult = await api.getContactCustomFields(contactId);
-                                if (valuesResult.success && valuesResult.data) {
-                                    customFieldValues = valuesResult.data;
-                                }
-                            } catch (err) {
-                                console.log('⚠️ Error obteniendo campos por ID:', err.message);
-                            }
+                        
+                        if (Object.keys(customFieldValues).length > 0) {
+                            console.log(`✅ ${Object.keys(customFieldValues).length} campos personalizados encontrados en chat completo`);
                         }
                     }
+                } catch (err) {
+                    console.warn('⚠️ Error obteniendo chat completo:', err.message);
                 }
-            } catch (err) {
-                console.log('⚠️ Error obteniendo contactos:', err.message);
             }
             
-            console.log('📊 Valores obtenidos:', Object.keys(customFieldValues).length);
-            if (Object.keys(customFieldValues).length > 0) {
-                console.log('📋 Valores encontrados:', customFieldValues);
-            } else {
-                console.log('⚠️ No se encontraron valores de campos personalizados');
+            // MÉTODO 3: Intentar endpoint de campos personalizados del chat
+            if (Object.keys(customFieldValues).length === 0) {
+                try {
+                    console.log(`🔍 MÉTODO 3: Intentando endpoint de campos personalizados del chat...`);
+                    const endpoints = [
+                        `/v2/chat/${chatId}/custom-fields`,
+                        `/v2/chat/${chatId}/fields`,
+                        `/v2/custom-field/chat/${chatId}`
+                    ];
+                    
+                    for (const endpoint of endpoints) {
+                        try {
+                            const result = await api.request(endpoint);
+                            if (result.success && result.data) {
+                                if (typeof result.data === 'object' && !Array.isArray(result.data)) {
+                                    customFieldValues = result.data;
+                                } else if (Array.isArray(result.data)) {
+                                    result.data.forEach(item => {
+                                        if (item.jsonName || item.name) {
+                                            const key = item.jsonName || item.name;
+                                            customFieldValues[key] = item.value || item;
+                                        }
+                                    });
+                                }
+                                if (Object.keys(customFieldValues).length > 0) {
+                                    console.log(`✅ Campos personalizados obtenidos desde ${endpoint}`);
+                                    break;
+                                }
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                } catch (err) {
+                    console.warn('⚠️ Error en método 3:', err.message);
+                }
             }
+            
+            console.log('📊 ===== RESUMEN FINAL =====');
+            console.log('📊 Resumen:', {
+                chatId,
+                contactId,
+                camposDisponibles: availableFields.length,
+                camposConValores: Object.keys(customFieldValues).length,
+                valores: customFieldValues
+            });
+            console.log('📊 ===== FIN RESUMEN =====');
 
-            // Renderizar campos personalizados
-            this.renderCustomFields(container, availableFields, customFieldValues);
+            // Renderizar lista de campos personalizados con checkboxes
+            this.renderCustomFieldsWithCheckboxes(container, availableFields, savedRequestedFields, chatId);
 
         } catch (error) {
-            console.error('❌ Error cargando campos personalizados:', error);
+            console.warn('⚠️ Error cargando campos personalizados (no crítico):', error.message);
             const container = document.getElementById(containerId);
             if (container) {
-                container.innerHTML = `<p class="error-custom-fields">Error al cargar campos personalizados: ${error.message}</p>`;
+                // Mostrar mensaje amigable sin bloquear la UI
+                container.innerHTML = `
+                    <div class="no-custom-fields">
+                        <i class="fas fa-info-circle"></i>
+                        <p>No se pudieron cargar los campos personalizados en este momento.</p>
+                    </div>
+                `;
             }
         }
     }
 
     /**
      * Renderiza los campos personalizados en el contenedor
+     * Formato: "Campo: Valor" (ej: "DUI: [URL de la imagen]", "Perfil laboral: asalariado")
      */
     renderCustomFields(container, availableFields, customFieldValues) {
         if (!container) return;
 
-        // Filtrar campos que tienen valores
-        const fieldsWithValues = availableFields.filter(field => {
-            const jsonName = field.jsonName;
+        // Crear un mapa de todos los valores de campos personalizados
+        // Incluir tanto campos disponibles como valores directos
+        const allFields = new Map();
+        
+        // Primero agregar campos disponibles con sus valores
+        availableFields.forEach(field => {
+            const jsonName = field.jsonName || field.name;
             const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name];
-            return value && value !== '' && value !== null && value !== undefined;
+            if (value && value !== '' && value !== null && value !== undefined) {
+                allFields.set(field.name, value);
+            }
+        });
+        
+        // También agregar valores directos que no estén en availableFields
+        Object.keys(customFieldValues).forEach(key => {
+            const value = customFieldValues[key];
+            if (value && value !== '' && value !== null && value !== undefined) {
+                // Buscar el nombre del campo por jsonName
+                const field = availableFields.find(f => 
+                    (f.jsonName || f.name) === key || 
+                    f.id === key || 
+                    f.name === key
+                );
+                const fieldName = field ? field.name : key;
+                if (!allFields.has(fieldName)) {
+                    allFields.set(fieldName, value);
+                }
+            }
         });
 
-        if (fieldsWithValues.length === 0) {
+        if (allFields.size === 0) {
             container.innerHTML = `
                 <div class="no-custom-fields">
                     <i class="fas fa-info-circle"></i>
@@ -2802,71 +2763,192 @@ class ChatbotDashboard {
             return;
         }
 
-        // Mapeo de nombres de campos a iconos
-        const fieldIcons = {
-            'zonaDeInteres': 'fas fa-map-marker-alt',
-            'perfilLaboral': 'fas fa-briefcase',
-            'dui': 'fas fa-id-card',
-            'constanciaDeSalario': 'fas fa-file-invoice-dollar',
-            'comprobanteDeAfp': 'fas fa-file-contract',
-            'declaracionDeRenta': 'fas fa-file-alt',
-            'comprobanteDeDomicilio': 'fas fa-home',
-            'declaracionesDeImpuestos(1–2Años)': 'fas fa-file-invoice',
-            'estadosDeCuentaBancariosPersonalesODelNegocio': 'fas fa-university',
-            'constanciasDeIngresoOContratosConClientes': 'fas fa-file-signature',
-            'modeloDeCasaDeInteres': 'fas fa-building'
-        };
-
-        const fieldsHTML = fieldsWithValues.map(field => {
-            const jsonName = field.jsonName;
-            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name] || '';
-            const icon = fieldIcons[jsonName] || 'fas fa-tag';
-            
-            // Verificar si el valor es una URL
-            const isUrl = typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
-            const isJson = typeof value === 'string' && (value.trim().startsWith('[') || value.trim().startsWith('{'));
-
+        // Renderizar en formato simple: "Campo: Valor"
+        const fieldsHTML = Array.from(allFields.entries()).map(([fieldName, value]) => {
+            // Procesar el valor
             let valueDisplay = '';
+            const valueStr = String(value);
+            
+            // Verificar si es JSON
+            const isJson = valueStr.trim().startsWith('[') || valueStr.trim().startsWith('{');
+            const isUrl = valueStr.startsWith('http://') || valueStr.startsWith('https://');
+            
             if (isJson) {
                 try {
-                    const parsed = JSON.parse(value);
+                    const parsed = JSON.parse(valueStr);
                     if (Array.isArray(parsed)) {
+                        // Si es un array, mostrar las URLs o valores
                         valueDisplay = parsed.map(item => {
-                            const itemUrl = typeof item === 'string' ? item : (item.url || item);
-                            if (itemUrl && (itemUrl.startsWith('http://') || itemUrl.startsWith('https://'))) {
-                                return `<a href="${itemUrl}" target="_blank" class="custom-field-link">${itemUrl}</a>`;
+                            const itemStr = typeof item === 'string' ? item : (item.url || JSON.stringify(item));
+                            if (itemStr && (itemStr.startsWith('http://') || itemStr.startsWith('https://'))) {
+                                return `<a href="${this.escapeHtml(itemStr)}" target="_blank" class="custom-field-link">${this.escapeHtml(itemStr)}</a>`;
                             }
-                            return this.escapeHtml(String(item));
-                        }).join('<br>');
+                            return this.escapeHtml(itemStr);
+                        }).join(', ');
                     } else {
-                        valueDisplay = this.escapeHtml(JSON.stringify(parsed, null, 2));
+                        valueDisplay = this.escapeHtml(JSON.stringify(parsed));
                     }
                 } catch (e) {
-                    valueDisplay = this.escapeHtml(String(value));
+                    valueDisplay = this.escapeHtml(valueStr);
                 }
             } else if (isUrl) {
-                valueDisplay = `<a href="${value}" target="_blank" class="custom-field-link">${value}</a>`;
+                valueDisplay = `<a href="${this.escapeHtml(valueStr)}" target="_blank" class="custom-field-link">${this.escapeHtml(valueStr)}</a>`;
             } else {
-                valueDisplay = this.escapeHtml(String(value));
+                valueDisplay = this.escapeHtml(valueStr);
             }
 
             return `
-                <div class="custom-field-item">
-                    <label>
-                        <i class="${icon}"></i>
-                        ${this.escapeHtml(field.name)}
-                    </label>
-                    <div class="custom-field-value">${valueDisplay}</div>
+                <div class="custom-field-row">
+                    <span class="custom-field-name"><strong>${this.escapeHtml(fieldName)}:</strong></span>
+                    <span class="custom-field-value">${valueDisplay}</span>
                 </div>
             `;
         }).join('');
 
         container.innerHTML = `
-            <div class="custom-fields-grid">
+            <div class="custom-fields-list">
                 ${fieldsHTML}
             </div>
         `;
     }
+
+    /**
+     * Renderiza la lista de campos personalizados con botones grandes para solicitar
+     */
+    renderCustomFieldsWithCheckboxes(container, availableFields, savedRequestedFields, chatId) {
+        if (!container) return;
+
+        if (!availableFields || availableFields.length === 0) {
+            container.innerHTML = `
+                <div class="no-custom-fields">
+                    <i class="fas fa-info-circle"></i>
+                    <p>No hay campos personalizados disponibles para configurar.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Crear HTML con botones grandes
+        const fieldsHTML = availableFields.map((field, index) => {
+            const fieldId = field.id || field.jsonName || field.name;
+            const fieldName = field.name || field.jsonName || 'Campo sin nombre';
+            const isSelected = savedRequestedFields[fieldId] === true || savedRequestedFields[fieldName] === true;
+            const buttonId = `customFieldButton_${chatId}_${index}`;
+
+            return `
+                <button 
+                    type="button"
+                    id="${buttonId}"
+                    class="custom-field-button ${isSelected ? 'selected' : ''}"
+                    data-field-id="${fieldId}"
+                    data-field-name="${this.escapeHtml(fieldName)}"
+                >
+                    <div class="custom-field-button-content">
+                        <div class="custom-field-button-icon">
+                            <i class="fas ${isSelected ? 'fa-check-circle' : 'fa-circle'}"></i>
+                        </div>
+                        <div class="custom-field-button-text">
+                            ${this.escapeHtml(fieldName)}
+                        </div>
+                    </div>
+                </button>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="custom-fields-buttons-container">
+                <div class="custom-fields-buttons-grid">
+                    ${fieldsHTML}
+                </div>
+                <div class="custom-fields-actions">
+                    <button class="btn btn-primary btn-lg save-custom-fields-btn" data-chat-id="${chatId}">
+                        <i class="fas fa-save"></i>
+                        Guardar Campos Solicitados
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Agregar event listeners a los botones
+        container.querySelectorAll('.custom-field-button').forEach(button => {
+            button.addEventListener('click', () => {
+                // Toggle selección
+                button.classList.toggle('selected');
+                const icon = button.querySelector('.custom-field-button-icon i');
+                if (button.classList.contains('selected')) {
+                    icon.classList.remove('fa-circle');
+                    icon.classList.add('fa-check-circle');
+                } else {
+                    icon.classList.remove('fa-check-circle');
+                    icon.classList.add('fa-circle');
+                }
+            });
+        });
+
+        // Agregar event listener al botón de guardar
+        const saveBtn = container.querySelector('.save-custom-fields-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                await this.saveRequestedCustomFields(chatId, container);
+            });
+        }
+    }
+
+    /**
+     * Guarda los campos personalizados solicitados en Airtable
+     */
+    async saveRequestedCustomFields(chatId, container) {
+        try {
+            if (!window.prospectsService) {
+                this.showNotification('Error: ProspectsService no disponible', 'error');
+                return;
+            }
+
+            // Obtener estado de todos los botones
+            const buttons = container.querySelectorAll('.custom-field-button');
+            const requestedFields = {};
+
+            buttons.forEach(button => {
+                const fieldId = button.getAttribute('data-field-id');
+                const fieldName = button.getAttribute('data-field-name');
+                const isSelected = button.classList.contains('selected');
+                
+                // Guardar con ambos ID y nombre para flexibilidad
+                if (fieldId) {
+                    requestedFields[fieldId] = isSelected;
+                }
+                if (fieldName) {
+                    requestedFields[fieldName] = isSelected;
+                }
+            });
+
+            console.log('💾 Guardando campos solicitados:', requestedFields);
+
+            // Obtener prospecto por chatId
+            const prospectResult = await window.airtableService.getProspectByChatId(chatId);
+            
+            if (!prospectResult.success || !prospectResult.prospect) {
+                this.showNotification('No se encontró el prospecto para guardar los campos', 'warning');
+                return;
+            }
+
+            // Actualizar prospecto en Airtable
+            const updateResult = await window.airtableService.updateProspect(prospectResult.prospect.id, {
+                campos_solicitados: JSON.stringify(requestedFields)
+            });
+
+            if (updateResult.success) {
+                this.showNotification('✅ Campos solicitados guardados correctamente', 'success');
+                console.log('✅ Campos solicitados guardados en Airtable');
+            } else {
+                throw new Error(updateResult.error || 'Error al guardar');
+            }
+        } catch (error) {
+            console.error('❌ Error guardando campos solicitados:', error);
+            this.showNotification('Error al guardar campos solicitados: ' + error.message, 'error');
+        }
+    }
+
 
     getUserInitials(user) {
         if (!user) return 'U';
@@ -3073,6 +3155,24 @@ class ChatbotDashboard {
         const chatMessagesContainer = document.getElementById('chatMessagesContainer');
         if (chatMessagesContainer) {
             chatMessagesContainer.innerHTML = '';
+        } else {
+            // Si no existe el contenedor, limpiar todo el chatDetails excepto elementos de envío
+            const headerDetails = chatDetails.querySelector('.chat-header-details');
+            const messageInput = chatDetails.querySelector('.message-input-container');
+            const assumeBtn = chatDetails.querySelector('.assume-chat-btn');
+            
+            chatDetails.innerHTML = '';
+            
+            // Restaurar solo elementos necesarios si existen
+            if (headerDetails) {
+                chatDetails.appendChild(headerDetails);
+            }
+            if (messageInput) {
+                chatDetails.appendChild(messageInput);
+            }
+            if (assumeBtn) {
+                chatDetails.appendChild(assumeBtn);
+            }
         }
 
         // Ocultar loading si existe
@@ -3098,6 +3198,22 @@ class ChatbotDashboard {
         const chatDetails = document.getElementById('chatDetails');
         if (!chatDetails) return;
 
+        // LIMPIAR COMPLETAMENTE antes de actualizar para evitar superposiciones
+        console.log('🧹 Limpiando chatDetails antes de actualizar...');
+        
+        // Ocultar welcome y loading
+        const chatWelcome = document.querySelector('.chat-welcome');
+        if (chatWelcome) {
+            chatWelcome.style.display = 'none';
+        }
+        const chatLoading = document.getElementById('chatLoading');
+        if (chatLoading) {
+            chatLoading.style.display = 'none';
+        }
+        
+        // Limpiar completamente el contenido
+        chatDetails.innerHTML = '';
+
         // Verificar si hay datos originales del cliente guardados (para chats asumidos)
         const savedClientNames = JSON.parse(localStorage.getItem('clientOriginalNames') || '{}');
         const savedClientData = savedClientNames[chat.id];
@@ -3120,10 +3236,7 @@ class ChatbotDashboard {
         const agentName = chat.agentName || 'Agente';
         const chatType = chat.type || 'whatsapp';
 
-        // Preservar elementos de envío de mensajes
-        const messageInputContainer = document.querySelector('.message-input-container');
-        const assumeBtn = document.querySelector('.assume-chat-btn');
-
+        // Crear nuevo contenido limpio
         chatDetails.innerHTML = `
             <div class="chat-header-details">
                 <div class="chat-avatar">${this.getUserInitials(userName)}</div>
@@ -3139,13 +3252,9 @@ class ChatbotDashboard {
             </div>
         `;
 
-        // Restaurar elementos de envío de mensajes si no existen
-        if (!document.getElementById('messageInput')) {
-            this.setupMessageSending();
-        }
-        if (!document.querySelector('.assume-chat-btn')) {
-            this.setupChatAssumption();
-        }
+        // Restaurar elementos de envío de mensajes
+        this.setupMessageSending();
+        this.setupChatAssumption();
         
         // Configurar controles de audio después de renderizar
         setTimeout(() => {
@@ -6334,7 +6443,10 @@ class ChatbotDashboard {
         // Botón de sincronizar
         const refreshBtn = document.getElementById('refreshProspectsBtn');
         if (refreshBtn) {
-            refreshBtn.addEventListener('click', async () => {
+            // Remover listeners anteriores para evitar duplicados
+            const newRefreshBtn = refreshBtn.cloneNode(true);
+            refreshBtn.parentNode.replaceChild(newRefreshBtn, refreshBtn);
+            newRefreshBtn.addEventListener('click', async () => {
                 await this.loadProspects();
             });
         }
@@ -6342,13 +6454,272 @@ class ChatbotDashboard {
         // Botón de extraer prospectos
         const extractBtn = document.getElementById('extractProspectsBtn');
         if (extractBtn) {
-            extractBtn.addEventListener('click', async () => {
-                await this.extractProspectsFromChats();
+            // Remover listeners anteriores para evitar duplicados
+            const newExtractBtn = extractBtn.cloneNode(true);
+            extractBtn.parentNode.replaceChild(newExtractBtn, extractBtn);
+            newExtractBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Prevenir múltiples clics simultáneos
+                if (newExtractBtn.disabled) {
+                    console.log('⚠️ Extracción ya en progreso, ignorando clic');
+                    return;
+                }
+                
+                // Deshabilitar botón durante la ejecución
+                newExtractBtn.disabled = true;
+                const originalText = newExtractBtn.innerHTML;
+                newExtractBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Extrayendo...';
+                
+                try {
+                    await this.extractProspectsFromChats();
+                } finally {
+                    // Rehabilitar botón después de la ejecución
+                    newExtractBtn.disabled = false;
+                    newExtractBtn.innerHTML = originalText;
+                }
             });
         }
 
+        // Configurar búsqueda y filtros
+        this.setupProspectsFilters();
+        
+        // Configurar paginación
+        this.setupProspectsPagination();
+
         // Cargar prospectos al entrar a la sección
         this.loadProspects();
+    }
+    
+    setupProspectsPagination() {
+        // Botón anterior
+        const prevBtn = document.getElementById('prospectsPaginationPrev');
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (this.prospectsPagination.currentPage > 1) {
+                    this.prospectsPagination.currentPage--;
+                    this.renderProspectsPaginated();
+                    this.updatePaginationControls();
+                    // Scroll suave hacia arriba de la tabla
+                    const tableContainer = document.querySelector('.prospects-table-container');
+                    if (tableContainer) {
+                        tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            });
+        }
+
+        // Botón siguiente
+        const nextBtn = document.getElementById('prospectsPaginationNext');
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                if (this.prospectsPagination.currentPage < this.prospectsPagination.totalPages) {
+                    this.prospectsPagination.currentPage++;
+                    this.renderProspectsPaginated();
+                    this.updatePaginationControls();
+                    // Scroll suave hacia arriba de la tabla
+                    const tableContainer = document.querySelector('.prospects-table-container');
+                    if (tableContainer) {
+                        tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            });
+        }
+
+        // Selector de items por página
+        const itemsPerPageSelect = document.getElementById('prospectsItemsPerPage');
+        if (itemsPerPageSelect) {
+            itemsPerPageSelect.addEventListener('change', (e) => {
+                const newItemsPerPage = parseInt(e.target.value, 10);
+                this.prospectsPagination.itemsPerPage = newItemsPerPage;
+                this.prospectsPagination.currentPage = 1; // Resetear a página 1
+                this.prospectsPagination.totalPages = Math.max(1, Math.ceil(
+                    this.prospectsPagination.totalFiltered / newItemsPerPage
+                ));
+                this.renderProspectsPaginated();
+                this.updatePaginationControls();
+            });
+        }
+
+        // Input de página directa
+        const pageInput = document.getElementById('prospectsPageInput');
+        if (pageInput) {
+            pageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const pageNumber = parseInt(e.target.value, 10);
+                    if (pageNumber >= 1 && pageNumber <= this.prospectsPagination.totalPages) {
+                        this.prospectsPagination.currentPage = pageNumber;
+                        this.renderProspectsPaginated();
+                        this.updatePaginationControls();
+                        // Scroll suave hacia arriba de la tabla
+                        const tableContainer = document.querySelector('.prospects-table-container');
+                        if (tableContainer) {
+                            tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    } else {
+                        // Restaurar valor válido
+                        e.target.value = this.prospectsPagination.currentPage;
+                    }
+                }
+            });
+        }
+    }
+    
+    updatePaginationControls() {
+        const { currentPage, totalPages, totalFiltered, itemsPerPage } = this.prospectsPagination;
+        
+        // Actualizar botones anterior/siguiente
+        const prevBtn = document.getElementById('prospectsPaginationPrev');
+        const nextBtn = document.getElementById('prospectsPaginationNext');
+        
+        if (prevBtn) {
+            prevBtn.disabled = currentPage === 1 || totalFiltered === 0;
+            prevBtn.classList.toggle('disabled', currentPage === 1 || totalFiltered === 0);
+        }
+        
+        if (nextBtn) {
+            nextBtn.disabled = currentPage === totalPages || totalFiltered === 0;
+            nextBtn.classList.toggle('disabled', currentPage === totalPages || totalFiltered === 0);
+        }
+        
+        // Actualizar información de página
+        const pageInfo = document.getElementById('prospectsPageInfo');
+        if (pageInfo) {
+            if (totalFiltered === 0) {
+                pageInfo.textContent = 'No hay prospectos para mostrar';
+            } else {
+                const startIndex = (currentPage - 1) * itemsPerPage + 1;
+                const endIndex = Math.min(currentPage * itemsPerPage, totalFiltered);
+                pageInfo.textContent = `Mostrando ${startIndex}-${endIndex} de ${totalFiltered} prospectos`;
+            }
+        }
+        
+        // Actualizar input de página
+        const pageInput = document.getElementById('prospectsPageInput');
+        if (pageInput) {
+            pageInput.value = totalFiltered === 0 ? 0 : currentPage;
+            pageInput.max = totalPages;
+            pageInput.disabled = totalFiltered === 0;
+        }
+        
+        // Actualizar total de páginas
+        const totalPagesSpan = document.getElementById('prospectsTotalPages');
+        if (totalPagesSpan) {
+            totalPagesSpan.textContent = totalPages;
+        }
+        
+        // Ocultar/mostrar controles de paginación si no hay prospectos
+        const paginationContainer = document.querySelector('.prospects-pagination');
+        if (paginationContainer) {
+            paginationContainer.style.display = totalFiltered === 0 ? 'none' : 'flex';
+        }
+    }
+
+    setupProspectsFilters() {
+        // Búsqueda
+        const searchInput = document.getElementById('prospectSearchInput');
+        const clearSearchBtn = document.getElementById('clearProspectSearch');
+        
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                if (query.length > 0) {
+                    clearSearchBtn.style.display = 'flex';
+                } else {
+                    clearSearchBtn.style.display = 'none';
+                }
+                this.applyProspectsFilters();
+            });
+        }
+
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                clearSearchBtn.style.display = 'none';
+                this.applyProspectsFilters();
+            });
+        }
+
+        // Filtro de fecha
+        const dateFilter = document.getElementById('prospectDateFilter');
+        if (dateFilter) {
+            dateFilter.addEventListener('change', () => {
+                this.applyProspectsFilters();
+            });
+        }
+
+        // Botón limpiar filtros
+        const clearFiltersBtn = document.getElementById('clearProspectFilters');
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                if (dateFilter) dateFilter.value = '';
+                if (clearSearchBtn) clearSearchBtn.style.display = 'none';
+                this.applyProspectsFilters();
+            });
+        }
+    }
+
+    applyProspectsFilters() {
+        const searchInput = document.getElementById('prospectSearchInput');
+        const dateFilter = document.getElementById('prospectDateFilter');
+        
+        const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        const dateFilterValue = dateFilter ? dateFilter.value : '';
+
+        // Obtener todos los prospectos originales
+        const allProspects = this.allProspects || [];
+        
+        // Filtrar prospectos
+        let filteredProspects = allProspects.filter(prospect => {
+            // Filtro de búsqueda
+            if (searchQuery) {
+                const nombre = (prospect.nombre || '').toLowerCase();
+                const telefono = (prospect.telefono || '').toLowerCase();
+                if (!nombre.includes(searchQuery) && !telefono.includes(searchQuery)) {
+                    return false;
+                }
+            }
+
+            // Filtro de fecha
+            if (dateFilterValue) {
+                const prospectDate = prospect.fechaExtraccion 
+                    ? new Date(prospect.fechaExtraccion).toISOString().split('T')[0]
+                    : '';
+                if (prospectDate !== dateFilterValue) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        // Ordenar: más recientes primero (priorizar createdTime - fecha de creación en Airtable)
+        // Esto asegura que el último prospecto agregado aparezca primero
+        filteredProspects.sort((a, b) => {
+            // Priorizar createdTime (fecha de creación del registro en Airtable)
+            // Si no existe, usar fechaExtraccion como fallback
+            const dateA = new Date(a.createdTime || a.fechaExtraccion || 0).getTime();
+            const dateB = new Date(b.createdTime || b.fechaExtraccion || 0).getTime();
+            return dateB - dateA; // Más reciente primero
+        });
+
+        // Guardar prospectos filtrados para paginación
+        this.prospectsPagination.filteredProspects = filteredProspects;
+        this.prospectsPagination.totalFiltered = filteredProspects.length;
+        
+        // Resetear a página 1 cuando se aplican nuevos filtros
+        this.prospectsPagination.currentPage = 1;
+        
+        // Calcular total de páginas
+        this.prospectsPagination.totalPages = Math.max(1, Math.ceil(filteredProspects.length / this.prospectsPagination.itemsPerPage));
+
+        // Renderizar prospectos con paginación
+        this.renderProspectsPaginated();
+        
+        // Actualizar controles de paginación
+        this.updatePaginationControls();
     }
 
     async loadProspects() {
@@ -6377,14 +6748,17 @@ class ChatbotDashboard {
                 const uniqueProspects = [];
                 const seenChatIds = new Set();
                 
-                // Ordenar por fecha de extracción (más reciente primero)
+                // Ordenar por fecha de creación en Airtable (createdTime) - más reciente primero
+                // Esto asegura que el último prospecto agregado aparezca primero
                 validProspects.sort((a, b) => {
-                    const dateA = new Date(a.fechaExtraccion || a.createdTime || 0);
-                    const dateB = new Date(b.fechaExtraccion || b.createdTime || 0);
-                    return dateB - dateA;
+                    // Priorizar createdTime (fecha de creación del registro en Airtable)
+                    // Si no existe, usar fechaExtraccion como fallback
+                    const dateA = new Date(a.createdTime || a.fechaExtraccion || 0).getTime();
+                    const dateB = new Date(b.createdTime || b.fechaExtraccion || 0).getTime();
+                    return dateB - dateA; // Más reciente primero
                 });
                 
-                // Mantener solo el primero de cada chat_id
+                // Mantener solo el primero de cada chat_id (que será el más reciente después del sort)
                 validProspects.forEach(prospect => {
                     if (!seenChatIds.has(prospect.chatId)) {
                         seenChatIds.add(prospect.chatId);
@@ -6395,7 +6769,12 @@ class ChatbotDashboard {
                 });
                 
                 console.log(`✅ ${uniqueProspects.length} prospectos únicos de ${result.data.length} totales (eliminados ${result.data.length - uniqueProspects.length} duplicados/inválidos)`);
-                this.renderProspects(uniqueProspects);
+                
+                // Guardar todos los prospectos para filtrado
+                this.allProspects = uniqueProspects;
+                
+                // Aplicar filtros (si hay alguno activo) o mostrar todos
+                this.applyProspectsFilters();
             } else {
                 throw new Error(result.error || 'Error cargando prospectos');
             }
@@ -6405,13 +6784,15 @@ class ChatbotDashboard {
         }
     }
 
-    renderProspects(prospects) {
+    renderProspectsPaginated() {
         const prospectsList = document.getElementById('prospectsList');
         if (!prospectsList) return;
 
         prospectsList.innerHTML = '';
 
-        if (prospects.length === 0) {
+        const { filteredProspects, currentPage, itemsPerPage } = this.prospectsPagination;
+        
+        if (filteredProspects.length === 0) {
             prospectsList.innerHTML = `
                 <tr>
                     <td colspan="4" class="text-center">
@@ -6426,10 +6807,27 @@ class ChatbotDashboard {
             return;
         }
 
-        prospects.forEach(prospect => {
+        // Calcular índices para la página actual
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const prospectsToRender = filteredProspects.slice(startIndex, endIndex);
+
+        // Renderizar solo los prospectos de la página actual
+        prospectsToRender.forEach(prospect => {
             const row = this.createProspectRow(prospect);
             prospectsList.appendChild(row);
         });
+    }
+
+    // Método legacy para compatibilidad (ahora usa paginación)
+    renderProspects(prospects) {
+        // Si se llama directamente, aplicar paginación
+        this.prospectsPagination.filteredProspects = prospects;
+        this.prospectsPagination.totalFiltered = prospects.length;
+        this.prospectsPagination.currentPage = 1;
+        this.prospectsPagination.totalPages = Math.max(1, Math.ceil(prospects.length / this.prospectsPagination.itemsPerPage));
+        this.renderProspectsPaginated();
+        this.updatePaginationControls();
     }
 
     createProspectRow(prospect) {
@@ -6525,19 +6923,31 @@ class ChatbotDashboard {
 
     async extractProspectsFromChats() {
         try {
-            this.showNotification('Extrayendo prospectos de los chats...', 'info');
+            console.log('🔄 Iniciando extracción de prospectos...');
+            this.showNotification('Recargando chats y extrayendo prospectos...', 'info');
             
             if (!window.prospectsService) {
                 throw new Error('ProspectsService no disponible');
             }
 
-            // Obtener todos los chats
+            // IMPORTANTE: Recargar chats antes de extraer para incluir chats nuevos
+            console.log('📡 Recargando chats para incluir los más recientes...');
+            await this.loadRealData();
+            
+            // Obtener todos los chats actualizados
             const chats = this.dashboardData.chats || [];
+            
+            console.log(`📊 Total de chats disponibles para extraer: ${chats.length}`);
             
             if (chats.length === 0) {
                 this.showNotification('No hay chats para analizar. Primero carga los chats.', 'warning');
                 return;
             }
+            
+            // Mostrar notificación de progreso
+            this.showNotification(`Analizando ${chats.length} chats para extraer prospectos...`, 'info');
+            
+            console.log(`📊 Analizando ${chats.length} chats...`);
 
             // Extraer prospectos
             const result = await window.prospectsService.extractProspectsFromAllChats(chats, this.dataService);
@@ -6782,7 +7192,7 @@ class ChatbotDashboard {
                     ` : ''}
 
                     <div class="prospect-custom-fields-section">
-                        <h3><i class="fas fa-tags"></i> Campos Personalizados de GPTMaker</h3>
+                        <h3><i class="fas fa-tags"></i> Campos Personalizados</h3>
                         <div id="customFieldsContainer" class="custom-fields-container">
                             <div class="loading-custom-fields">
                                 <i class="fas fa-spinner fa-spin"></i>

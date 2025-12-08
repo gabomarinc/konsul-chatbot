@@ -22,7 +22,7 @@
             window.authService.loadAuthData();
             
             // Dar más tiempo para asegurar que los datos se cargaron completamente
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 500));
             
             // Verificar que los datos se cargaron correctamente
             console.log('🔍 RouteGuard: Verificando datos cargados:', {
@@ -47,12 +47,23 @@
             userEmail: window.authService.currentUser?.email
         });
 
+        // Solo redirigir si realmente es necesario
+        // Evitar redirecciones múltiples
         if (isAuth && isLogin) {
             console.log('✅ Usuario autenticado en login, redirigiendo a dashboard');
+            // Usar replace para evitar que se pueda volver atrás
             window.location.replace('index.html');
+            return; // Salir inmediatamente para evitar ejecuciones adicionales
         } else if (!isAuth && !isLogin) {
-            console.log('❌ Usuario no autenticado, redirigiendo a login');
-            window.location.replace('login.html');
+            // Verificar una vez más después de un pequeño delay para evitar condiciones de carrera
+            await new Promise(resolve => setTimeout(resolve, 200));
+            const doubleCheck = window.authService.isAuthenticated();
+            if (!doubleCheck) {
+                console.log('❌ Usuario no autenticado (verificado dos veces), redirigiendo a login');
+                window.location.replace('login.html');
+            } else {
+                console.log('✅ Usuario autenticado en segunda verificación, no redirigiendo');
+            }
         }
     }
 

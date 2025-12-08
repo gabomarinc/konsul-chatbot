@@ -5,9 +5,21 @@
 
 class GPTMakerConfig {
     constructor() {
+        // Determinar baseURL según el ambiente
+        // En producción/preview (Vercel), usar proxy para evitar CORS
+        // En localhost, usar directamente (Vite tiene proxy configurado)
+        let baseURL = 'https://api.gptmaker.ai';
+        if (typeof window !== 'undefined') {
+            const hostname = window.location.hostname;
+            if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+                // Producción/Preview: usar proxy de Vercel
+                baseURL = '/api';
+            }
+        }
+        
         this.config = {
             token: null,
-            baseURL: 'https://api.gptmaker.ai',
+            baseURL: baseURL,
             timeout: 30000, // 30 segundos
             retryAttempts: 3
         };

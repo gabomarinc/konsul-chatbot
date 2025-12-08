@@ -808,6 +808,15 @@ class AirtableService {
             if (prospectData.comentarios !== undefined) {
                 fields['comentarios'] = prospectData.comentarios || '';
             }
+            
+            // Actualizar campos_solicitados si existen
+            if (prospectData.campos_solicitados !== undefined) {
+                if (typeof prospectData.campos_solicitados === 'string') {
+                    fields['campos_solicitados'] = prospectData.campos_solicitados;
+                } else if (typeof prospectData.campos_solicitados === 'object') {
+                    fields['campos_solicitados'] = JSON.stringify(prospectData.campos_solicitados);
+                }
+            }
 
             const payload = { fields };
 
@@ -866,10 +875,24 @@ class AirtableService {
             console.warn('⚠️ Error parseando URLs:', e);
         }
         
+        // Parsear campos_solicitados
+        let camposSolicitados = null;
+        if (fields.campos_solicitados) {
+            try {
+                camposSolicitados = typeof fields.campos_solicitados === 'string'
+                    ? JSON.parse(fields.campos_solicitados)
+                    : fields.campos_solicitados;
+            } catch (e) {
+                console.warn('⚠️ Error parseando campos_solicitados:', e);
+                camposSolicitados = fields.campos_solicitados; // Guardar como está si no es JSON válido
+            }
+        }
+
         return {
             id: record.id,
             nombre: fields.nombre || fields.A_nombre || fields['A nombre'] || '',
             chatId: fields.chat_id || fields.A_chat_id || fields['A chat_id'] || '',
+            campos_solicitados: camposSolicitados,
             telefono: fields.telefono || '',
             canal: fields.canal || '',
             fechaExtraccion: fields.fecha_extraccion || fields.fecha_extraccion || '',

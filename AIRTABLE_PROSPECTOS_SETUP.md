@@ -156,3 +156,4 @@ Una vez configurada la tabla en Airtable (o decidido usar solo localStorage), co
 **¿Prefieres usar Airtable o localStorage?**
 - Airtable = Datos persistentes, sincronización, más profesional
 - localStorage = Más rápido, sin configuración, solo local
+

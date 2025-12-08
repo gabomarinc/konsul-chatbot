@@ -60,3 +60,4 @@
 - ✅ No más prospectos "Sin nombre" inválidos
 - ✅ Modal con mejor diseño
 - ✅ Mejor experiencia de usuario
+

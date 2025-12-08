@@ -515,13 +515,31 @@
                     <div class="section-header">
                         <h2>Prospectos</h2>
                         <div class="section-actions">
-                            <button class="btn btn-outline" id="refreshProspectsBtn">
+                            <button class="btn btn-primary" id="refreshProspectsBtn">
                                 <i class="fas fa-sync-alt"></i>
                                 Sincronizar
                             </button>
-                            <button class="btn btn-primary" id="extractProspectsBtn">
+                            <button class="btn btn-primary extract-prospects-btn-large" id="extractProspectsBtn">
                                 <i class="fas fa-user-plus"></i>
                                 Extraer Prospectos
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filtros y búsqueda -->
+                    <div class="prospects-filters">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="prospectSearchInput" placeholder="Buscar por nombre o teléfono..." class="search-input">
+                            <button class="clear-search-btn" id="clearProspectSearch" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="filter-controls">
+                            <input type="date" id="prospectDateFilter" class="filter-input">
+                            <button class="btn btn-outline btn-sm" id="clearProspectFilters">
+                                <i class="fas fa-times"></i>
+                                Limpiar
                             </button>
                         </div>
                     </div>
@@ -540,6 +558,46 @@
                                 <!-- Prospects will be loaded here -->
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Controles de paginación -->
+                    <div class="prospects-pagination">
+                        <div class="pagination-info">
+                            <span id="prospectsPageInfo">Mostrando 0-0 de 0 prospectos</span>
+                        </div>
+                        <div class="pagination-controls">
+                            <div class="pagination-buttons">
+                                <button id="prospectsPaginationPrev" class="btn btn-outline btn-sm" disabled>
+                                    <i class="fas fa-chevron-left"></i>
+                                    Anterior
+                                </button>
+                                <div class="page-input-group">
+                                    <span>Página</span>
+                                    <input 
+                                        type="number" 
+                                        id="prospectsPageInput" 
+                                        class="page-input" 
+                                        min="1" 
+                                        value="1"
+                                        aria-label="Número de página"
+                                    >
+                                    <span>de <span id="prospectsTotalPages">1</span></span>
+                                </div>
+                                <button id="prospectsPaginationNext" class="btn btn-outline btn-sm">
+                                    Siguiente
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                            <div class="items-per-page">
+                                <label for="prospectsItemsPerPage">Mostrar:</label>
+                                <select id="prospectsItemsPerPage" class="items-per-page-select">
+                                    <option value="25">25</option>
+                                    <option value="50" selected>50</option>
+                                    <option value="100">100</option>
+                                    <option value="200">200</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
