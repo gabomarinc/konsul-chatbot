@@ -1687,18 +1687,33 @@ class GPTMakerAPI {
 
             for (const endpoint of endpoints) {
                 try {
+                    console.log(`🔄 Intentando endpoint: ${endpoint}`);
                     const result = await this.request(endpoint);
+                    console.log(`📊 Respuesta del endpoint ${endpoint}:`, {
+                        success: result.success,
+                        status: result.status,
+                        hasData: !!result.data,
+                        dataType: typeof result.data,
+                        isArray: Array.isArray(result.data),
+                        error: result.error
+                    });
+                    
                     if (result.success && result.data) {
                         console.log(`✅ Valores de campos personalizados obtenidos desde: ${endpoint}`);
+                        console.log(`📋 Datos recibidos:`, result.data);
                         return {
                             success: true,
                             data: result.data,
                             contactId: contactId,
-                            source: 'api'
+                            source: 'api',
+                            endpoint: endpoint
                         };
+                    } else {
+                        console.log(`⚠️ Endpoint ${endpoint} respondió pero sin datos válidos:`, result);
                     }
                 } catch (err) {
-                    console.log(`⚠️ Endpoint ${endpoint} no disponible:`, err.message);
+                    console.log(`⚠️ Endpoint ${endpoint} falló:`, err.message);
+                    console.log(`   - Error completo:`, err);
                     continue;
                 }
             }
