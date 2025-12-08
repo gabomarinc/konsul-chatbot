@@ -6647,19 +6647,28 @@ class ChatbotDashboard {
     async extractProspectsFromChats() {
         try {
             console.log('🔄 Iniciando extracción de prospectos...');
-            this.showNotification('Extrayendo prospectos de los chats...', 'info');
+            this.showNotification('Recargando chats y extrayendo prospectos...', 'info');
             
             if (!window.prospectsService) {
                 throw new Error('ProspectsService no disponible');
             }
 
-            // Obtener todos los chats
+            // IMPORTANTE: Recargar chats antes de extraer para incluir chats nuevos
+            console.log('📡 Recargando chats para incluir los más recientes...');
+            await this.loadRealData();
+            
+            // Obtener todos los chats actualizados
             const chats = this.dashboardData.chats || [];
+            
+            console.log(`📊 Total de chats disponibles para extraer: ${chats.length}`);
             
             if (chats.length === 0) {
                 this.showNotification('No hay chats para analizar. Primero carga los chats.', 'warning');
                 return;
             }
+            
+            // Mostrar notificación de progreso
+            this.showNotification(`Analizando ${chats.length} chats para extraer prospectos...`, 'info');
             
             console.log(`📊 Analizando ${chats.length} chats...`);
 
