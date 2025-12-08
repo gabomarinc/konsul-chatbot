@@ -6574,34 +6574,45 @@ class ChatbotDashboard {
         const nextBtn = document.getElementById('prospectsPaginationNext');
         
         if (prevBtn) {
-            prevBtn.disabled = currentPage === 1;
-            prevBtn.classList.toggle('disabled', currentPage === 1);
+            prevBtn.disabled = currentPage === 1 || totalFiltered === 0;
+            prevBtn.classList.toggle('disabled', currentPage === 1 || totalFiltered === 0);
         }
         
         if (nextBtn) {
-            nextBtn.disabled = currentPage === totalPages;
-            nextBtn.classList.toggle('disabled', currentPage === totalPages);
+            nextBtn.disabled = currentPage === totalPages || totalFiltered === 0;
+            nextBtn.classList.toggle('disabled', currentPage === totalPages || totalFiltered === 0);
         }
         
         // Actualizar información de página
         const pageInfo = document.getElementById('prospectsPageInfo');
         if (pageInfo) {
-            const startIndex = (currentPage - 1) * itemsPerPage + 1;
-            const endIndex = Math.min(currentPage * itemsPerPage, totalFiltered);
-            pageInfo.textContent = `Mostrando ${startIndex}-${endIndex} de ${totalFiltered} prospectos`;
+            if (totalFiltered === 0) {
+                pageInfo.textContent = 'No hay prospectos para mostrar';
+            } else {
+                const startIndex = (currentPage - 1) * itemsPerPage + 1;
+                const endIndex = Math.min(currentPage * itemsPerPage, totalFiltered);
+                pageInfo.textContent = `Mostrando ${startIndex}-${endIndex} de ${totalFiltered} prospectos`;
+            }
         }
         
         // Actualizar input de página
         const pageInput = document.getElementById('prospectsPageInput');
         if (pageInput) {
-            pageInput.value = currentPage;
+            pageInput.value = totalFiltered === 0 ? 0 : currentPage;
             pageInput.max = totalPages;
+            pageInput.disabled = totalFiltered === 0;
         }
         
         // Actualizar total de páginas
         const totalPagesSpan = document.getElementById('prospectsTotalPages');
         if (totalPagesSpan) {
             totalPagesSpan.textContent = totalPages;
+        }
+        
+        // Ocultar/mostrar controles de paginación si no hay prospectos
+        const paginationContainer = document.querySelector('.prospects-pagination');
+        if (paginationContainer) {
+            paginationContainer.style.display = totalFiltered === 0 ? 'none' : 'flex';
         }
     }
 
