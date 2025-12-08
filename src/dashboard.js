@@ -2582,18 +2582,42 @@ class ChatbotDashboard {
 
     /**
      * Renderiza los campos personalizados en el contenedor
+     * Formato: "Campo: Valor" (ej: "DUI: [URL de la imagen]", "Perfil laboral: asalariado")
      */
     renderCustomFields(container, availableFields, customFieldValues) {
         if (!container) return;
 
-        // Filtrar campos que tienen valores
-        const fieldsWithValues = availableFields.filter(field => {
-            const jsonName = field.jsonName;
+        // Crear un mapa de todos los valores de campos personalizados
+        // Incluir tanto campos disponibles como valores directos
+        const allFields = new Map();
+        
+        // Primero agregar campos disponibles con sus valores
+        availableFields.forEach(field => {
+            const jsonName = field.jsonName || field.name;
             const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name];
-            return value && value !== '' && value !== null && value !== undefined;
+            if (value && value !== '' && value !== null && value !== undefined) {
+                allFields.set(field.name, value);
+            }
+        });
+        
+        // También agregar valores directos que no estén en availableFields
+        Object.keys(customFieldValues).forEach(key => {
+            const value = customFieldValues[key];
+            if (value && value !== '' && value !== null && value !== undefined) {
+                // Buscar el nombre del campo por jsonName
+                const field = availableFields.find(f => 
+                    (f.jsonName || f.name) === key || 
+                    f.id === key || 
+                    f.name === key
+                );
+                const fieldName = field ? field.name : key;
+                if (!allFields.has(fieldName)) {
+                    allFields.set(fieldName, value);
+                }
+            }
         });
 
-        if (fieldsWithValues.length === 0) {
+        if (allFields.size === 0) {
             container.innerHTML = `
                 <div class="no-custom-fields">
                     <i class="fas fa-info-circle"></i>
@@ -2603,160 +2627,55 @@ class ChatbotDashboard {
             return;
         }
 
-        // Mapeo de nombres de campos a iconos
-        const fieldIcons = {
-            'zonaDeInteres': 'fas fa-map-marker-alt',
-            'perfilLaboral': 'fas fa-briefcase',
-            'dui': 'fas fa-id-card',
-            'constanciaDeSalario': 'fas fa-file-invoice-dollar',
-            'comprobanteDeAfp': 'fas fa-file-contract',
-            'declaracionDeRenta': 'fas fa-file-alt',
-            'comprobanteDeDomicilio': 'fas fa-home',
-            'declaracionesDeImpuestos(1–2Años)': 'fas fa-file-invoice',
-            'estadosDeCuentaBancariosPersonalesODelNegocio': 'fas fa-university',
-            'constanciasDeIngresoOContratosConClientes': 'fas fa-file-signature',
-            'modeloDeCasaDeInteres': 'fas fa-building'
-        };
-
-        const fieldsHTML = fieldsWithValues.map(field => {
-            const jsonName = field.jsonName;
-            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name] || '';
-            const icon = fieldIcons[jsonName] || 'fas fa-tag';
-            
-            // Verificar si el valor es una URL
-            const isUrl = typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
-            const isJson = typeof value === 'string' && (value.trim().startsWith('[') || value.trim().startsWith('{'));
-
+        // Renderizar en formato simple: "Campo: Valor"
+        const fieldsHTML = Array.from(allFields.entries()).map(([fieldName, value]) => {
+            // Procesar el valor
             let valueDisplay = '';
+            const valueStr = String(value);
+            
+            // Verificar si es JSON
+            const isJson = valueStr.trim().startsWith('[') || valueStr.trim().startsWith('{');
+            const isUrl = valueStr.startsWith('http://') || valueStr.startsWith('https://');
+            
             if (isJson) {
                 try {
-                    const parsed = JSON.parse(value);
+                    const parsed = JSON.parse(valueStr);
                     if (Array.isArray(parsed)) {
+                        // Si es un array, mostrar las URLs o valores
                         valueDisplay = parsed.map(item => {
-                            const itemUrl = typeof item === 'string' ? item : (item.url || item);
-                            if (itemUrl && (itemUrl.startsWith('http://') || itemUrl.startsWith('https://'))) {
-                                return `<a href="${itemUrl}" target="_blank" class="custom-field-link">${itemUrl}</a>`;
+                            const itemStr = typeof item === 'string' ? item : (item.url || JSON.stringify(item));
+                            if (itemStr && (itemStr.startsWith('http://') || itemStr.startsWith('https://'))) {
+                                return `<a href="${this.escapeHtml(itemStr)}" target="_blank" class="custom-field-link">${this.escapeHtml(itemStr)}</a>`;
                             }
-                            return this.escapeHtml(String(item));
-                        }).join('<br>');
+                            return this.escapeHtml(itemStr);
+                        }).join(', ');
                     } else {
-                        valueDisplay = this.escapeHtml(JSON.stringify(parsed, null, 2));
+                        valueDisplay = this.escapeHtml(JSON.stringify(parsed));
                     }
                 } catch (e) {
-                    valueDisplay = this.escapeHtml(String(value));
+                    valueDisplay = this.escapeHtml(valueStr);
                 }
             } else if (isUrl) {
-                valueDisplay = `<a href="${value}" target="_blank" class="custom-field-link">${value}</a>`;
+                valueDisplay = `<a href="${this.escapeHtml(valueStr)}" target="_blank" class="custom-field-link">${this.escapeHtml(valueStr)}</a>`;
             } else {
-                valueDisplay = this.escapeHtml(String(value));
+                valueDisplay = this.escapeHtml(valueStr);
             }
 
             return `
-                <div class="custom-field-item">
-                    <label>
-                        <i class="${icon}"></i>
-                        ${this.escapeHtml(field.name)}
-                    </label>
-                    <div class="custom-field-value">${valueDisplay}</div>
+                <div class="custom-field-row">
+                    <span class="custom-field-name"><strong>${this.escapeHtml(fieldName)}:</strong></span>
+                    <span class="custom-field-value">${valueDisplay}</span>
                 </div>
             `;
         }).join('');
 
         container.innerHTML = `
-            <div class="custom-fields-grid">
+            <div class="custom-fields-list">
                 ${fieldsHTML}
             </div>
         `;
     }
 
-    /**
-     * Renderiza los campos personalizados en el contenedor
-     */
-    renderCustomFields(container, availableFields, customFieldValues) {
-        if (!container) return;
-
-        // Filtrar campos que tienen valores
-        const fieldsWithValues = availableFields.filter(field => {
-            const jsonName = field.jsonName;
-            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name];
-            return value && value !== '' && value !== null && value !== undefined;
-        });
-
-        if (fieldsWithValues.length === 0) {
-            container.innerHTML = `
-                <div class="no-custom-fields">
-                    <i class="fas fa-info-circle"></i>
-                    <p>Este contacto no tiene campos personalizados configurados aún.</p>
-                </div>
-            `;
-            return;
-        }
-
-        // Mapeo de nombres de campos a iconos
-        const fieldIcons = {
-            'zonaDeInteres': 'fas fa-map-marker-alt',
-            'perfilLaboral': 'fas fa-briefcase',
-            'dui': 'fas fa-id-card',
-            'constanciaDeSalario': 'fas fa-file-invoice-dollar',
-            'comprobanteDeAfp': 'fas fa-file-contract',
-            'declaracionDeRenta': 'fas fa-file-alt',
-            'comprobanteDeDomicilio': 'fas fa-home',
-            'declaracionesDeImpuestos(1–2Años)': 'fas fa-file-invoice',
-            'estadosDeCuentaBancariosPersonalesODelNegocio': 'fas fa-university',
-            'constanciasDeIngresoOContratosConClientes': 'fas fa-file-signature',
-            'modeloDeCasaDeInteres': 'fas fa-building'
-        };
-
-        const fieldsHTML = fieldsWithValues.map(field => {
-            const jsonName = field.jsonName;
-            const value = customFieldValues[jsonName] || customFieldValues[field.id] || customFieldValues[field.name] || '';
-            const icon = fieldIcons[jsonName] || 'fas fa-tag';
-            
-            // Verificar si el valor es una URL
-            const isUrl = typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
-            const isJson = typeof value === 'string' && (value.trim().startsWith('[') || value.trim().startsWith('{'));
-
-            let valueDisplay = '';
-            if (isJson) {
-                try {
-                    const parsed = JSON.parse(value);
-                    if (Array.isArray(parsed)) {
-                        valueDisplay = parsed.map(item => {
-                            const itemUrl = typeof item === 'string' ? item : (item.url || item);
-                            if (itemUrl && (itemUrl.startsWith('http://') || itemUrl.startsWith('https://'))) {
-                                return `<a href="${itemUrl}" target="_blank" class="custom-field-link">${itemUrl}</a>`;
-                            }
-                            return this.escapeHtml(String(item));
-                        }).join('<br>');
-                    } else {
-                        valueDisplay = this.escapeHtml(JSON.stringify(parsed, null, 2));
-                    }
-                } catch (e) {
-                    valueDisplay = this.escapeHtml(String(value));
-                }
-            } else if (isUrl) {
-                valueDisplay = `<a href="${value}" target="_blank" class="custom-field-link">${value}</a>`;
-            } else {
-                valueDisplay = this.escapeHtml(String(value));
-            }
-
-            return `
-                <div class="custom-field-item">
-                    <label>
-                        <i class="${icon}"></i>
-                        ${this.escapeHtml(field.name)}
-                    </label>
-                    <div class="custom-field-value">${valueDisplay}</div>
-                </div>
-            `;
-        }).join('');
-
-        container.innerHTML = `
-            <div class="custom-fields-grid">
-                ${fieldsHTML}
-            </div>
-        `;
-    }
 
     getUserInitials(user) {
         if (!user) return 'U';
