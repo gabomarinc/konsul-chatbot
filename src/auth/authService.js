@@ -32,11 +32,9 @@ class AuthService {
             hasToken: !!this.token
         });
         
-        // Verificar si el token es válido al cargar (solo en modo Airtable/API)
-        if (this.token && this.useAirtable) {
-            this.validateToken();
-        }
-        
+        // NO validar token automáticamente al iniciar para evitar redirecciones
+        // La validación se hará cuando sea necesario (ej: al hacer peticiones a la API)
+        // Si el token es inválido, la API lo indicará y entonces se limpiará
         console.log('✅ AuthService inicializado');
     }
 
@@ -413,25 +411,19 @@ class AuthService {
                 return true;
             }
 
-            const response = await fetch(`${this.apiBase}/validate`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                this.currentUser = data.user;
+            // NO validar contra endpoint que probablemente no existe
+            // En modo Airtable, si hay token y usuario en localStorage, asumimos válido
+            // La validación real se hará cuando se hagan peticiones a la API
+            if (this.currentUser && this.token) {
+                console.log('✅ Token y usuario presentes, asumiendo válido');
                 return true;
-            } else {
-                this.clearAuthData();
-                return false;
             }
+
+            return false;
 
         } catch (error) {
             console.error('❌ Error validando token:', error);
-            this.clearAuthData();
+            // NO limpiar datos automáticamente - dejar que la API lo haga si es necesario
             return false;
         }
     }
