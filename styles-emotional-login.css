@@ -1,0 +1,245 @@
+/* ============================================
+   EMOTIONAL DESIGN - LOGIN PAGE
+   ============================================ */
+
+body[data-emotional-design="true"] {
+    background: linear-gradient(135deg, #27BEA5 0%, #1ea892 50%, #15967d 100%);
+    background-size: 200% 200%;
+    animation: gradientShift 15s ease infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+body[data-emotional-design="true"]::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    animation: float 20s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes gradientShift {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+body[data-emotional-design="true"] .login-container {
+    animation: fadeInScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.98);
+    position: relative;
+    overflow: hidden;
+}
+
+body[data-emotional-design="true"] .login-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+body[data-emotional-design="true"] .login-header {
+    animation: fadeInUp 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s backwards;
+}
+
+body[data-emotional-design="true"] .login-header .logo img {
+    animation: fadeInScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s backwards;
+    filter: drop-shadow(0 4px 8px rgba(39, 190, 165, 0.3));
+    transition: transform 0.3s ease;
+}
+
+body[data-emotional-design="true"] .login-header .logo:hover img {
+    transform: scale(1.05) rotate(2deg);
+}
+
+body[data-emotional-design="true"] .login-header h1 {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fadeInUp 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s backwards;
+}
+
+body[data-emotional-design="true"] .form-group {
+    animation: fadeInUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+body[data-emotional-design="true"] .form-group:nth-child(1) { animation-delay: 0.5s; }
+body[data-emotional-design="true"] .form-group:nth-child(2) { animation-delay: 0.6s; }
+body[data-emotional-design="true"] .form-group:nth-child(3) { animation-delay: 0.7s; }
+
+body[data-emotional-design="true"] .form-input {
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border: 2px solid #e2e8f0;
+    position: relative;
+}
+
+body[data-emotional-design="true"] .form-input:focus {
+    border-color: #27BEA5;
+    box-shadow: 0 0 0 4px rgba(39, 190, 165, 0.15), 0 4px 12px rgba(39, 190, 165, 0.2);
+    transform: translateY(-2px);
+    background: white;
+}
+
+body[data-emotional-design="true"] .form-label {
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+body[data-emotional-design="true"] .form-group:focus-within .form-label {
+    color: #27BEA5;
+    transform: translateX(4px);
+}
+
+body[data-emotional-design="true"] .form-label i {
+    transition: transform 0.3s ease;
+}
+
+body[data-emotional-design="true"] .form-group:focus-within .form-label i {
+    transform: scale(1.2) rotate(5deg);
+    color: #27BEA5;
+}
+
+body[data-emotional-design="true"] .password-toggle-btn {
+    transition: all 0.3s ease;
+}
+
+body[data-emotional-design="true"] .password-toggle-btn:hover {
+    color: #27BEA5;
+    transform: scale(1.2);
+}
+
+body[data-emotional-design="true"] .login-btn {
+    background: linear-gradient(135deg, #27BEA5 0%, #1ea892 100%);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(39, 190, 165, 0.3);
+    animation: fadeInUp 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.8s backwards;
+}
+
+body[data-emotional-design="true"] .login-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+body[data-emotional-design="true"] .login-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px rgba(39, 190, 165, 0.4);
+    background: linear-gradient(135deg, #2dd4bf 0%, #27BEA5 100%);
+}
+
+body[data-emotional-design="true"] .login-btn:active {
+    transform: translateY(-1px);
+}
+
+body[data-emotional-design="true"] .login-btn:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+body[data-emotional-design="true"] .login-btn .spinner {
+    animation: spin 1s linear infinite, pulse 2s ease-in-out infinite;
+}
+
+body[data-emotional-design="true"] .remember-forgot {
+    animation: fadeInUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.9s backwards;
+}
+
+body[data-emotional-design="true"] .remember-me input[type="checkbox"] {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+body[data-emotional-design="true"] .remember-me input[type="checkbox"]:checked {
+    accent-color: #27BEA5;
+    transform: scale(1.1);
+}
+
+body[data-emotional-design="true"] .forgot-password {
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+body[data-emotional-design="true"] .forgot-password::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: #27BEA5;
+    transition: width 0.3s ease;
+}
+
+body[data-emotional-design="true"] .forgot-password:hover::after {
+    width: 100%;
+}
+
+body[data-emotional-design="true"] .forgot-password:hover {
+    color: #1ea892;
+    transform: translateX(2px);
+}
+
+body[data-emotional-design="true"] .error-message {
+    animation: slideInRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border-left: 4px solid #e53e3e;
+    box-shadow: 0 4px 12px rgba(229, 62, 62, 0.2);
+}
+
+body[data-emotional-design="true"] .success-message {
+    animation: slideInRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border-left: 4px solid #38a169;
+    box-shadow: 0 4px 12px rgba(56, 161, 105, 0.2);
+}
+
+/* Efectos de partículas flotantes en el fondo */
+body[data-emotional-design="true"]::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+    animation: float 25s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+body[data-emotional-design="true"] .login-container {
+    z-index: 1;
+    position: relative;
+}

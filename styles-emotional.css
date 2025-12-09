@@ -1,0 +1,773 @@
+/* ============================================
+   EMOTIONAL DESIGN - NUEVO DISEÑO
+   Mantiene la misma paleta de colores y tipografía
+   Aplica principios de emotional design moderno
+   ============================================ */
+
+/* Variables adicionales para emotional design */
+:root {
+    /* Timing functions para animaciones más naturales */
+    --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+    --ease-in-out-back: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    
+    /* Sombras mejoradas con más profundidad */
+    --shadow-emotional-sm: 0 2px 4px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-emotional-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06);
+    --shadow-emotional-lg: 0 12px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
+    --shadow-emotional-xl: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+    
+    /* Gradientes sutiles */
+    --gradient-primary: linear-gradient(135deg, #27BEA5 0%, #1ea892 100%);
+    --gradient-primary-hover: linear-gradient(135deg, #2dd4bf 0%, #27BEA5 100%);
+    --gradient-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.8) 100%);
+    
+    /* Transiciones estándar */
+    --transition-fast: 150ms var(--ease-out-expo);
+    --transition-base: 250ms var(--ease-out-expo);
+    --transition-slow: 400ms var(--ease-out-expo);
+    --transition-bounce: 500ms var(--ease-spring);
+}
+
+/* ============================================
+   ANIMACIONES GLOBALES
+   ============================================ */
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.02);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes glow {
+    0%, 100% {
+        box-shadow: 0 0 5px rgba(39, 190, 165, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(39, 190, 165, 0.8), 0 0 30px rgba(39, 190, 165, 0.4);
+    }
+}
+
+/* ============================================
+   BODY Y CONTENEDOR PRINCIPAL
+   ============================================ */
+
+body[data-emotional-design="true"] {
+    /* Suavizar el scroll */
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body[data-emotional-design="true"] .dashboard-container {
+    animation: fadeInUp 0.6s var(--ease-out-expo);
+}
+
+/* ============================================
+   SIDEBAR - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .sidebar {
+    box-shadow: var(--shadow-emotional-md);
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.98);
+}
+
+body[data-emotional-design="true"][data-theme="dark"] .sidebar {
+    background: rgba(15, 23, 42, 0.98);
+}
+
+body[data-emotional-design="true"] .sidebar-header {
+    padding: 1.75rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+}
+
+body[data-emotional-design="true"] .sidebar-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+}
+
+body[data-emotional-design="true"] .logo {
+    transition: transform var(--transition-base);
+}
+
+body[data-emotional-design="true"] .logo:hover {
+    transform: scale(1.05);
+}
+
+body[data-emotional-design="true"] .logo-img {
+    transition: all var(--transition-base);
+    filter: drop-shadow(0 2px 4px rgba(39, 190, 165, 0.2));
+}
+
+body[data-emotional-design="true"] .logo-img:hover {
+    filter: drop-shadow(0 4px 8px rgba(39, 190, 165, 0.3));
+}
+
+/* Navegación con microinteracciones */
+body[data-emotional-design="true"] .nav-item {
+    margin: 0.125rem 0.75rem;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    position: relative;
+}
+
+body[data-emotional-design="true"] .nav-link {
+    position: relative;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-base);
+    overflow: hidden;
+}
+
+body[data-emotional-design="true"] .nav-link::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--primary-color);
+    transform: scaleY(0);
+    transition: transform var(--transition-base);
+    border-radius: 0 2px 2px 0;
+}
+
+body[data-emotional-design="true"] .nav-link:hover::before {
+    transform: scaleY(1);
+}
+
+body[data-emotional-design="true"] .nav-link:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    transform: translateX(4px);
+    padding-left: calc(1.5rem + 4px);
+}
+
+body[data-emotional-design="true"] .nav-item.active .nav-link {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: var(--shadow-emotional-md);
+    transform: translateX(0);
+    padding-left: 1.5rem;
+}
+
+body[data-emotional-design="true"] .nav-item.active .nav-link::before {
+    display: none;
+}
+
+body[data-emotional-design="true"] .nav-item.active .nav-link i {
+    transform: scale(1.1);
+    transition: transform var(--transition-bounce);
+}
+
+body[data-emotional-design="true"] .nav-link i {
+    transition: transform var(--transition-base);
+    display: inline-block;
+}
+
+body[data-emotional-design="true"] .nav-link:hover i {
+    transform: scale(1.15) rotate(5deg);
+}
+
+/* Sidebar toggle mejorado */
+body[data-emotional-design="true"] .sidebar-toggle {
+    transition: all var(--transition-base);
+    border-radius: var(--radius-md);
+}
+
+body[data-emotional-design="true"] .sidebar-toggle:hover {
+    background: var(--bg-secondary);
+    color: var(--primary-color);
+    transform: rotate(90deg) scale(1.1);
+}
+
+body[data-emotional-design="true"] .sidebar-toggle:active {
+    transform: rotate(90deg) scale(0.95);
+}
+
+/* ============================================
+   HEADER - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .main-header {
+    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: var(--shadow-emotional-sm);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+body[data-emotional-design="true"][data-theme="dark"] .main-header {
+    background: rgba(15, 23, 42, 0.85);
+    border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+body[data-emotional-design="true"] .workspace-info,
+body[data-emotional-design="true"] .credits-info {
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+body[data-emotional-design="true"] .workspace-info::before,
+body[data-emotional-design="true"] .credits-info::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
+}
+
+body[data-emotional-design="true"] .workspace-info:hover::before,
+body[data-emotional-design="true"] .credits-info:hover::before {
+    left: 100%;
+}
+
+body[data-emotional-design="true"] .workspace-info:hover,
+body[data-emotional-design="true"] .credits-info:hover {
+    background: var(--bg-tertiary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-emotional-sm);
+    border-color: var(--border-color);
+}
+
+/* User menu mejorado */
+body[data-emotional-design="true"] .user-menu {
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+}
+
+body[data-emotional-design="true"] .user-menu:hover {
+    background: var(--bg-tertiary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-emotional-sm);
+    border-color: var(--border-color);
+}
+
+body[data-emotional-design="true"] .user-avatar {
+    transition: all var(--transition-base);
+    position: relative;
+    overflow: hidden;
+}
+
+body[data-emotional-design="true"] .user-avatar::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+    transform: scale(0);
+    transition: transform var(--transition-slow);
+}
+
+body[data-emotional-design="true"] .user-menu:hover .user-avatar {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: var(--shadow-emotional-md);
+}
+
+body[data-emotional-design="true"] .user-menu:hover .user-avatar::after {
+    transform: scale(1);
+}
+
+/* ============================================
+   BOTONES - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .btn {
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-base);
+    border: none;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+body[data-emotional-design="true"] .btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+body[data-emotional-design="true"] .btn:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+body[data-emotional-design="true"] .btn-primary {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: var(--shadow-emotional-md);
+}
+
+body[data-emotional-design="true"] .btn-primary:hover {
+    background: var(--gradient-primary-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-emotional-lg);
+}
+
+body[data-emotional-design="true"] .btn-primary:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-emotional-sm);
+}
+
+body[data-emotional-design="true"] .btn-outline {
+    border: 2px solid var(--border-color);
+    background: transparent;
+    transition: all var(--transition-base);
+}
+
+body[data-emotional-design="true"] .btn-outline:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: rgba(39, 190, 165, 0.05);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-emotional-sm);
+}
+
+body[data-emotional-design="true"] .btn-outline:active {
+    transform: translateY(0);
+}
+
+/* Botón de sincronizar con animación mejorada */
+body[data-emotional-design="true"] .sync-btn-large {
+    position: relative;
+    overflow: visible;
+}
+
+body[data-emotional-design="true"] .sync-btn-large::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--gradient-primary);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+    z-index: -1;
+    transition: all var(--transition-slow);
+}
+
+body[data-emotional-design="true"] .sync-btn-large:hover::after {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1.2);
+}
+
+body[data-emotional-design="true"] .sync-btn-large i {
+    transition: transform var(--transition-base);
+}
+
+body[data-emotional-design="true"] .sync-btn-large:hover i {
+    transform: rotate(180deg);
+}
+
+/* ============================================
+   CARDS Y STATS - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .stat-card {
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+    position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.6s var(--ease-out-expo) backwards;
+}
+
+body[data-emotional-design="true"] .stat-card:nth-child(1) { animation-delay: 0.1s; }
+body[data-emotional-design="true"] .stat-card:nth-child(2) { animation-delay: 0.2s; }
+body[data-emotional-design="true"] .stat-card:nth-child(3) { animation-delay: 0.3s; }
+body[data-emotional-design="true"] .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+body[data-emotional-design="true"] .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--transition-base);
+}
+
+body[data-emotional-design="true"] .stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-emotional-lg);
+    border-color: var(--border-color);
+}
+
+body[data-emotional-design="true"] .stat-card:hover::before {
+    transform: scaleX(1);
+}
+
+body[data-emotional-design="true"] .stat-icon {
+    transition: all var(--transition-bounce);
+}
+
+body[data-emotional-design="true"] .stat-card:hover .stat-icon {
+    transform: scale(1.15) rotate(5deg);
+    color: var(--primary-color);
+}
+
+body[data-emotional-design="true"] .stat-content h3 {
+    transition: all var(--transition-base);
+}
+
+body[data-emotional-design="true"] .stat-card:hover .stat-content h3 {
+    color: var(--primary-color);
+    transform: scale(1.05);
+}
+
+/* ============================================
+   TABLAS - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .prospects-table,
+body[data-emotional-design="true"] .attendances-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+body[data-emotional-design="true"] .prospects-table tbody tr,
+body[data-emotional-design="true"] .attendances-table tbody tr {
+    transition: all var(--transition-fast);
+    border-left: 3px solid transparent;
+}
+
+body[data-emotional-design="true"] .prospects-table tbody tr:hover,
+body[data-emotional-design="true"] .attendances-table tbody tr:hover {
+    background: var(--bg-secondary);
+    border-left-color: var(--primary-color);
+    transform: translateX(4px);
+    box-shadow: var(--shadow-emotional-sm);
+}
+
+body[data-emotional-design="true"] .prospects-table tbody tr {
+    animation: fadeInUp 0.4s var(--ease-out-expo) backwards;
+}
+
+body[data-emotional-design="true"] .prospects-table tbody tr:nth-child(1) { animation-delay: 0.05s; }
+body[data-emotional-design="true"] .prospects-table tbody tr:nth-child(2) { animation-delay: 0.1s; }
+body[data-emotional-design="true"] .prospects-table tbody tr:nth-child(3) { animation-delay: 0.15s; }
+body[data-emotional-design="true"] .prospects-table tbody tr:nth-child(4) { animation-delay: 0.2s; }
+body[data-emotional-design="true"] .prospects-table tbody tr:nth-child(5) { animation-delay: 0.25s; }
+
+/* ============================================
+   FORMULARIOS - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .form-input,
+body[data-emotional-design="true"] .form-textarea,
+body[data-emotional-design="true"] .search-input,
+body[data-emotional-design="true"] .filter-input {
+    transition: all var(--transition-base);
+    border: 2px solid var(--border-color);
+}
+
+body[data-emotional-design="true"] .form-input:focus,
+body[data-emotional-design="true"] .form-textarea:focus,
+body[data-emotional-design="true"] .search-input:focus,
+body[data-emotional-design="true"] .filter-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(39, 190, 165, 0.1);
+    transform: translateY(-1px);
+}
+
+body[data-emotional-design="true"] .form-group label {
+    transition: color var(--transition-base);
+}
+
+body[data-emotional-design="true"] .form-input:focus + label,
+body[data-emotional-design="true"] .form-group:focus-within label {
+    color: var(--primary-color);
+}
+
+/* ============================================
+   CHAT - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .chat-item {
+    transition: all var(--transition-base);
+    border-left: 3px solid transparent;
+}
+
+body[data-emotional-design="true"] .chat-item:hover {
+    background: var(--bg-secondary);
+    border-left-color: var(--primary-color);
+    transform: translateX(4px);
+    box-shadow: var(--shadow-emotional-sm);
+}
+
+body[data-emotional-design="true"] .chat-item.active {
+    background: rgba(39, 190, 165, 0.1);
+    border-left-color: var(--primary-color);
+    box-shadow: var(--shadow-emotional-sm);
+}
+
+/* ============================================
+   LOADING STATES - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .loading-spinner {
+    position: relative;
+}
+
+body[data-emotional-design="true"] .loading-spinner i {
+    animation: spin 1s linear infinite, pulse 2s ease-in-out infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+body[data-emotional-design="true"] .loading-message {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   NOTIFICACIONES - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .notification {
+    animation: slideInRight 0.4s var(--ease-spring), fadeInUp 0.4s var(--ease-out-expo);
+    box-shadow: var(--shadow-emotional-lg);
+    border-left: 4px solid;
+    backdrop-filter: blur(10px);
+}
+
+body[data-emotional-design="true"] .notification-success {
+    border-left-color: var(--success-color);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+}
+
+body[data-emotional-design="true"] .notification-error {
+    border-left-color: var(--danger-color);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+}
+
+/* ============================================
+   MODALES - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .modal {
+    animation: fadeInScale 0.3s var(--ease-out-expo);
+}
+
+body[data-emotional-design="true"] .modal-content {
+    box-shadow: var(--shadow-emotional-xl);
+    border: none;
+    backdrop-filter: blur(20px);
+}
+
+/* ============================================
+   PAGINACIÓN - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .pagination-buttons button {
+    transition: all var(--transition-base);
+    border: 2px solid var(--border-color);
+}
+
+body[data-emotional-design="true"] .pagination-buttons button:hover:not(:disabled) {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-emotional-sm);
+}
+
+body[data-emotional-design="true"] .pagination-buttons button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+/* ============================================
+   AGENTES GRID - MEJORAS EMOCIONALES
+   ============================================ */
+
+body[data-emotional-design="true"] .agent-card {
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+    animation: fadeInUp 0.5s var(--ease-out-expo) backwards;
+}
+
+body[data-emotional-design="true"] .agent-card:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: var(--shadow-emotional-lg);
+    border-color: var(--primary-color);
+}
+
+body[data-emotional-design="true"] .agent-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--transition-base);
+}
+
+body[data-emotional-design="true"] .agent-card:hover::before {
+    transform: scaleX(1);
+}
+
+/* ============================================
+   SCROLLBAR PERSONALIZADA
+   ============================================ */
+
+body[data-emotional-design="true"] ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+body[data-emotional-design="true"] ::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+body[data-emotional-design="true"] ::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+    transition: background var(--transition-base);
+}
+
+body[data-emotional-design="true"] ::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+}
+
+/* ============================================
+   EFECTOS ESPECIALES
+   ============================================ */
+
+/* Efecto de brillo en elementos interactivos */
+body[data-emotional-design="true"] .btn-primary,
+body[data-emotional-design="true"] .nav-item.active .nav-link {
+    position: relative;
+    overflow: hidden;
+}
+
+body[data-emotional-design="true"] .btn-primary::after,
+body[data-emotional-design="true"] .nav-item.active .nav-link::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    transition: transform 0.6s;
+}
+
+body[data-emotional-design="true"] .btn-primary:hover::after,
+body[data-emotional-design="true"] .nav-item.active .nav-link:hover::after {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+}
+
+/* ============================================
+   RESPONSIVE - MEJORAS EMOCIONALES
+   ============================================ */
+
+@media (max-width: 768px) {
+    body[data-emotional-design="true"] .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    body[data-emotional-design="true"] .btn:hover {
+        transform: scale(1.02);
+    }
+}
+
+/* ============================================
+   DARK THEME ADJUSTMENTS
+   ============================================ */
+
+body[data-emotional-design="true"][data-theme="dark"] .sidebar {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body[data-emotional-design="true"][data-theme="dark"] .stat-card:hover {
+    background: var(--bg-tertiary);
+}
+
+body[data-emotional-design="true"][data-theme="dark"] .main-header {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
