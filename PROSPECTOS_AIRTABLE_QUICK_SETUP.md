@@ -51,3 +51,4 @@ Si prefieres no configurar Airtable ahora:
 
 **¡Con esto ya podemos empezar a codificar!** 🚀
 
+

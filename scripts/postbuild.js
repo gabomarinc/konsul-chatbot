@@ -8,6 +8,8 @@ const copies = [
   { src: 'src', dest: 'src', recursive: true },
   { src: 'login.html', dest: 'login.html' },
   { src: 'styles.css', dest: 'styles.css' },
+  { src: 'styles-emotional.css', dest: 'styles-emotional.css' },
+  { src: 'styles-emotional-login.css', dest: 'styles-emotional-login.css' },
   { src: 'logo.png', dest: 'logo.png' }
 ];
 

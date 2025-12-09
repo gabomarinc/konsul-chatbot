@@ -157,3 +157,4 @@ Una vez configurada la tabla en Airtable (o decidido usar solo localStorage), co
 - Airtable = Datos persistentes, sincronización, más profesional
 - localStorage = Más rápido, sin configuración, solo local
 
+

@@ -47,12 +47,39 @@ class EmotionalDesignToggle {
         this.isEnabled = true;
         document.body.setAttribute('data-emotional-design', 'true');
         
-        // Cargar el CSS de emotional design (dashboard)
-        if (!document.getElementById('emotional-design-styles')) {
+        // Activar el CSS que ya está en el HTML (si existe)
+        const existingLink = document.getElementById('emotional-design-styles');
+        if (existingLink) {
+            existingLink.media = 'all';
+            existingLink.disabled = false;
+            console.log('✅ Emotional Design CSS activado desde HTML');
+        } else {
+            // Si no existe en HTML, cargarlo dinámicamente
             const link = document.createElement('link');
             link.id = 'emotional-design-styles';
             link.rel = 'stylesheet';
             link.href = 'styles-emotional.css';
+            
+            link.onload = () => {
+                console.log('✅ Emotional Design CSS cargado dinámicamente');
+            };
+            link.onerror = () => {
+                console.error('❌ Error cargando Emotional Design CSS desde styles-emotional.css');
+                // Intentar con diferentes rutas
+                const altPaths = ['./styles-emotional.css', '/styles-emotional.css'];
+                let attempt = 0;
+                const tryNextPath = () => {
+                    if (attempt < altPaths.length) {
+                        link.href = altPaths[attempt];
+                        attempt++;
+                    } else {
+                        console.error('❌ No se pudo cargar Emotional Design CSS desde ninguna ruta');
+                    }
+                };
+                link.onerror = tryNextPath;
+                tryNextPath();
+            };
+            
             document.head.appendChild(link);
         }
         
@@ -61,17 +88,40 @@ class EmotionalDesignToggle {
             const loginStyles = document.getElementById('emotional-design-login-styles');
             if (loginStyles) {
                 loginStyles.media = 'all';
-            } else if (!document.getElementById('emotional-design-login-styles')) {
+                loginStyles.disabled = false;
+                console.log('✅ Emotional Design Login CSS activado');
+            } else {
                 const loginLink = document.createElement('link');
                 loginLink.id = 'emotional-design-login-styles';
                 loginLink.rel = 'stylesheet';
                 loginLink.href = 'styles-emotional-login.css';
+                
+                loginLink.onload = () => {
+                    console.log('✅ Emotional Design Login CSS cargado');
+                };
+                loginLink.onerror = () => {
+                    console.error('❌ Error cargando Emotional Design Login CSS');
+                };
+                
                 document.head.appendChild(loginLink);
             }
         }
         
         // Agregar clase al body para transiciones suaves
         document.body.classList.add('emotional-design-active');
+        
+        // Verificar que los estilos se apliquen
+        setTimeout(() => {
+            const testElement = document.createElement('div');
+            testElement.style.cssText = 'position: absolute; visibility: hidden;';
+            testElement.setAttribute('data-emotional-design', 'true');
+            document.body.appendChild(testElement);
+            const computedStyle = window.getComputedStyle(testElement);
+            document.body.removeChild(testElement);
+            
+            console.log('📋 Atributo data-emotional-design:', document.body.getAttribute('data-emotional-design'));
+            console.log('📋 Clase emotional-design-active:', document.body.classList.contains('emotional-design-active'));
+        }, 100);
         
         console.log('✨ Emotional Design activado');
     }

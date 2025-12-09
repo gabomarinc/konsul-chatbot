@@ -112,3 +112,4 @@ Eliminar completamente la dependencia de Airtable para los prospectos y usar sol
 4. **Eliminar Airtable** una vez confirmado que todo funciona
 
 
+

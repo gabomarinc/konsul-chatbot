@@ -37,3 +37,4 @@ Si más adelante quieres agregar más información, puedes crear estos campos en
 
 Con los 3 campos que ya tienes en Airtable, la extracción de prospectos debería funcionar perfectamente ahora.
 
+
