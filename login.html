@@ -294,6 +294,15 @@
     <!-- Emotional Design Toggle (debe cargarse temprano) -->
     <script src="src/emotional-design-toggle.js"></script>
     
+    <!-- Inyectar AIRTABLE_API_KEY aquí si está disponible (se inyecta automáticamente en build) -->
+    <script>
+        // Verificar si la API key está disponible (inyectada por postbuild o variable de entorno)
+        if (typeof window.AIRTABLE_API_KEY === 'undefined') {
+            // Intentar obtener de variable de entorno si está disponible
+            console.log('🔍 Verificando AIRTABLE_API_KEY...');
+        }
+    </script>
+    
     <script src="src/config/airtable.config.js"></script>
     <script src="src/services/airtableService.js"></script>
     <script src="src/auth/mockData.js"></script>

@@ -57,23 +57,46 @@ function injectAirtableKey(htmlPath, fileName) {
   
   if (insertionPoint !== -1) {
     const configScript = `    <script>
-        // Configuración de Airtable desde variable de entorno
-        window.AIRTABLE_API_KEY = '${airtableApiKey}';
+        // Configuración de Airtable desde variable de entorno (inyectada en build)
+        window.AIRTABLE_API_KEY = '${airtableApiKey.replace(/'/g, "\\'")}';
+        console.log('🔑 AIRTABLE_API_KEY inyectada desde postbuild');
     </script>
 `;
     
-    // Encontrar el inicio de la línea del script
-    const lineStart = html.lastIndexOf('    <script', insertionPoint);
-    if (lineStart !== -1) {
-      html = html.slice(0, lineStart) + configScript + html.slice(lineStart);
+    // Buscar un mejor punto de inserción - ANTES de cualquier script de airtable
+    // Buscar el primer script que carga airtable.config.js
+    const scriptTagStart = html.indexOf('<script', insertionPoint - 200);
+    if (scriptTagStart !== -1) {
+      // Insertar justo antes del primer script de airtable
+      html = html.slice(0, scriptTagStart) + configScript + '\n' + html.slice(scriptTagStart);
       
       writeFileSync(htmlPath, html, 'utf8');
       console.log(`[postbuild] ✅ Variable AIRTABLE_API_KEY inyectada en ${fileName}`);
     } else {
-      console.warn(`[postbuild] ⚠️ No se encontró el punto de inserción para AIRTABLE_API_KEY en ${fileName}`);
+      // Fallback: buscar cualquier script tag cerca
+      const lineStart = html.lastIndexOf('    <script', insertionPoint);
+      if (lineStart !== -1) {
+        html = html.slice(0, lineStart) + configScript + html.slice(lineStart);
+        writeFileSync(htmlPath, html, 'utf8');
+        console.log(`[postbuild] ✅ Variable AIRTABLE_API_KEY inyectada en ${fileName} (fallback)`);
+      } else {
+        console.warn(`[postbuild] ⚠️ No se encontró el punto de inserción para AIRTABLE_API_KEY en ${fileName}`);
+      }
     }
   } else {
     console.warn(`[postbuild] ⚠️ No se encontró airtable.config.js ni airtable.init.js en ${fileName}`);
+    // Intentar insertar al inicio de los scripts como último recurso
+    const firstScript = html.indexOf('<script');
+    if (firstScript !== -1) {
+      const configScript = `    <script>
+        // Configuración de Airtable desde variable de entorno
+        window.AIRTABLE_API_KEY = '${airtableApiKey.replace(/'/g, "\\'")}';
+    </script>
+`;
+      html = html.slice(0, firstScript) + configScript + html.slice(firstScript);
+      writeFileSync(htmlPath, html, 'utf8');
+      console.log(`[postbuild] ✅ Variable AIRTABLE_API_KEY inyectada en ${fileName} (al inicio de scripts)`);
+    }
   }
 }
 
