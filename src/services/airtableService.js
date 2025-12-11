@@ -530,12 +530,45 @@ class AirtableService {
             
             const url = `${this.apiBase}/${this.baseId}/Prospectos`;
             
+            // Obtener información del usuario/workspace actual
+            let userEmail = null;
+            let workspaceId = null;
+            
+            try {
+                if (window.authService && window.authService.getCurrentUser) {
+                    const currentUser = window.authService.getCurrentUser();
+                    if (currentUser) {
+                        userEmail = currentUser.email;
+                        console.log('👤 Usuario actual para prospecto:', userEmail);
+                    }
+                }
+                
+                // Intentar obtener workspace ID
+                if (window.dashboard && window.dashboard.dataService) {
+                    const workspaces = await window.dashboard.dataService.getWorkspaces();
+                    if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
+                        workspaceId = workspaces.data[0].id;
+                        console.log('🏢 Workspace ID para prospecto:', workspaceId);
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ No se pudo obtener información de usuario/workspace:', error);
+            }
+            
             // Campos obligatorios
             const fields = {
                 'nombre': prospectData.nombre || '',
                 'chat_id': prospectData.chatId || '',
                 'fecha_extraccion': prospectData.fechaExtraccion || new Date().toISOString()
             };
+
+            // Agregar campos de asociación con usuario/workspace
+            if (userEmail) {
+                fields['user_email'] = userEmail;
+            }
+            if (workspaceId) {
+                fields['workspace_id'] = workspaceId;
+            }
 
             // Campos opcionales - Solo agregar si tienen datos
             // Guardar imágenes como JSON string si existen
@@ -580,10 +613,69 @@ class AirtableService {
 
     async getAllProspects(options = {}) {
         try {
-            console.log('🔍 Obteniendo todos los prospectos de Airtable...');
+            console.log('🔍 Obteniendo prospectos de Airtable...');
+            
+            // Obtener información del usuario/workspace actual para filtrar
+            let userEmail = null;
+            let workspaceId = null;
+            let filterFormula = null;
+            
+            try {
+                if (window.authService && window.authService.getCurrentUser) {
+                    const currentUser = window.authService.getCurrentUser();
+                    if (currentUser) {
+                        userEmail = currentUser.email;
+                        console.log('👤 Filtrando por usuario:', userEmail);
+                    }
+                }
+                
+                // Intentar obtener workspace ID
+                if (window.dashboard && window.dashboard.dataService) {
+                    const workspaces = await window.dashboard.dataService.getWorkspaces();
+                    if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
+                        workspaceId = workspaces.data[0].id;
+                        console.log('🏢 Filtrando por workspace:', workspaceId);
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ No se pudo obtener información de usuario/workspace para filtrar:', error);
+            }
+            
+            // Construir fórmula de filtro
+            const filterParts = [];
+            
+            // Filtrar por user_email si existe el campo y tenemos el email
+            if (userEmail && !options.includeAll) {
+                // Intentar filtrar por user_email (si el campo existe en Airtable)
+                filterParts.push(`{user_email} = '${userEmail.replace(/'/g, "\\'")}'`);
+            }
+            
+            // Filtrar por workspace_id si existe el campo y tenemos el ID
+            if (workspaceId && !options.includeAll) {
+                filterParts.push(`{workspace_id} = '${workspaceId.replace(/'/g, "\\'")}'`);
+            }
+            
+            // Si no hay filtros y no se solicita incluir todos, mostrar advertencia
+            if (filterParts.length === 0 && !options.includeAll) {
+                console.warn('⚠️ No se pudo filtrar por usuario/workspace. Mostrando todos los prospectos.');
+                console.warn('💡 Considera agregar campos user_email o workspace_id en Airtable para filtrar correctamente.');
+            }
+            
+            if (filterParts.length > 0) {
+                // Si hay múltiples filtros, combinarlos con AND (el prospecto debe cumplir ambos)
+                // Si solo hay uno, usarlo directamente
+                filterFormula = filterParts.length > 1 
+                    ? `AND(${filterParts.join(', ')})` 
+                    : filterParts[0];
+            }
             
             let url = `${this.apiBase}/${this.baseId}/Prospectos`;
             const params = [];
+            
+            // Agregar filtro si existe
+            if (filterFormula) {
+                params.push(`filterByFormula=${encodeURIComponent(filterFormula)}`);
+            }
             
             if (options.maxRecords) params.push(`maxRecords=${options.maxRecords}`);
             if (options.pageSize) params.push(`pageSize=${options.pageSize}`);
@@ -593,18 +685,56 @@ class AirtableService {
                 url += '?' + params.join('&');
             }
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: this.getHeaders()
-            });
+            // Manejo de rate limiting con retry
+            let response = null;
+            let retries = 3;
+            let delay = 1000; // 1 segundo inicial
+            
+            while (retries > 0) {
+                try {
+                    response = await fetch(url, {
+                        method: 'GET',
+                        headers: this.getHeaders()
+                    });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || 'Error obteniendo prospectos');
+                    // Si es 429 (rate limit), esperar y reintentar
+                    if (response.status === 429) {
+                        const retryAfter = response.headers.get('Retry-After');
+                        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay;
+                        
+                        console.warn(`⏳ Rate limit alcanzado. Esperando ${waitTime/1000}s antes de reintentar... (${4-retries} intento)`);
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        delay *= 2; // Exponential backoff
+                        retries--;
+                        continue;
+                    }
+                    
+                    // Si es otro error, lanzarlo
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error?.message || `Error obteniendo prospectos: ${response.status}`);
+                    }
+                    
+                    // Si llegamos aquí, la respuesta es exitosa
+                    break;
+                    
+                } catch (error) {
+                    retries--;
+                    if (retries === 0) {
+                        throw error;
+                    }
+                    console.warn(`⚠️ Error en petición, reintentando... (${3-retries} intentos restantes)`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+            }
+
+            if (!response || !response.ok) {
+                throw new Error('Error obteniendo prospectos después de reintentos');
             }
 
             const data = await response.json();
-            console.log(`✅ ${data.records.length} prospectos obtenidos de Airtable`);
+            console.log(`✅ ${data.records.length} prospectos obtenidos de Airtable${filterFormula ? ' (filtrados)' : ' (todos)'}`);
             
             const prospects = data.records
                 .map(record => this.transformAirtableProspect(record))
@@ -614,11 +744,18 @@ class AirtableService {
                 success: true,
                 data: prospects,
                 total: prospects.length,
-                source: 'airtable'
+                source: 'airtable',
+                filtered: !!filterFormula
             };
 
         } catch (error) {
             console.error('❌ Error obteniendo prospectos de Airtable:', error);
+            
+            // Si es rate limit y no hay más reintentos, sugerir solución
+            if (error.message.includes('429') || error.message.includes('rate limit')) {
+                console.error('💡 Solución: Espera unos minutos antes de volver a intentar, o considera implementar paginación.');
+            }
+            
             return {
                 success: false,
                 error: error.message,
@@ -644,13 +781,51 @@ class AirtableService {
                     const formula = encodeURIComponent(`{${fieldName}} = '${escapedChatId}'`);
                     const url = `${this.apiBase}/${this.baseId}/Prospectos?filterByFormula=${formula}`;
                     
-                    response = await fetch(url, {
-                        method: 'GET',
-                        headers: this.getHeaders()
-                    });
+                    // Manejo de rate limiting con retry
+                    let retries = 3;
+                    let delay = 1000;
+                    
+                    while (retries > 0) {
+                        try {
+                            response = await fetch(url, {
+                                method: 'GET',
+                                headers: this.getHeaders()
+                            });
 
-                    if (response.ok) {
-                        data = await response.json();
+                            // Si es 429 (rate limit), esperar y reintentar
+                            if (response.status === 429) {
+                                const retryAfter = response.headers.get('Retry-After');
+                                const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay;
+                                
+                                console.warn(`⏳ Rate limit al buscar prospecto. Esperando ${waitTime/1000}s...`);
+                                await new Promise(resolve => setTimeout(resolve, waitTime));
+                                delay *= 2;
+                                retries--;
+                                continue;
+                            }
+                            
+                            if (response.ok) {
+                                data = await response.json();
+                                break;
+                            }
+                            
+                            // Si no es 429 y no es OK, lanzar error
+                            if (!response.ok) {
+                                const errorData = await response.json().catch(() => ({}));
+                                throw new Error(errorData.error?.message || `Error ${response.status}`);
+                            }
+                            
+                        } catch (error) {
+                            retries--;
+                            if (retries === 0) {
+                                throw error;
+                            }
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2;
+                        }
+                    }
+                    
+                    if (response && response.ok && data) {
                         if (data.records && data.records.length > 0) {
                             console.log(`✅ Prospecto encontrado usando campo "${fieldName}": ${data.records.length} resultado(s)`);
                             // Si hay múltiples resultados, tomar el primero
