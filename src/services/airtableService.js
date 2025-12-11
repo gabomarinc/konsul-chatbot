@@ -94,13 +94,19 @@ class AirtableService {
         try {
             console.log('🔍 Buscando usuario por email:', email);
             
+            // Verificar que la API key esté configurada
+            if (!this.apiKey) {
+                const errorMsg = 'API Key de Airtable no configurada. Verifica que AIRTABLE_API_KEY esté en las variables de entorno de Vercel.';
+                console.error('❌', errorMsg);
+                throw new Error(errorMsg);
+            }
+            
             // Usar filterByFormula para buscar por email
             // Nota: El campo en tu Airtable se llama 'email' (minúscula)
             const formula = encodeURIComponent(`{email} = '${email}'`);
             const url = `${this.apiBase}/${this.baseId}/${this.tableName}?filterByFormula=${formula}`;
             
             console.log('📡 URL de Airtable:', url);
-            console.log('🔑 Headers:', this.getHeaders());
             
             const response = await fetch(url, {
                 method: 'GET',
@@ -110,9 +116,24 @@ class AirtableService {
             console.log('📡 Response status:', response.status);
 
             if (!response.ok) {
-                const error = await response.json();
-                console.error('❌ Error de Airtable:', error);
-                throw new Error(error.error?.message || 'Error buscando usuario en Airtable');
+                let errorMessage = 'Error buscando usuario en Airtable';
+                
+                try {
+                    const error = await response.json();
+                    console.error('❌ Error de Airtable:', error);
+                    
+                    if (response.status === 401) {
+                        errorMessage = 'API Key de Airtable inválida. Verifica la configuración en Vercel.';
+                    } else if (response.status === 404) {
+                        errorMessage = 'Tabla Users no encontrada en Airtable. Verifica la configuración.';
+                    } else {
+                        errorMessage = error.error?.message || `Error ${response.status}: ${error.error?.type || 'Error desconocido'}`;
+                    }
+                } catch (parseError) {
+                    errorMessage = `Error ${response.status}: No se pudo obtener detalles del error`;
+                }
+                
+                throw new Error(errorMessage);
             }
 
             const data = await response.json();
@@ -130,16 +151,23 @@ class AirtableService {
                 console.log('📊 Registros recibidos:', data.records?.length || 0);
                 return {
                     success: false,
-                    error: 'Usuario no encontrado'
+                    error: 'Usuario no encontrado. Verifica que el email sea correcto y que el usuario exista en Airtable.'
                 };
             }
 
         } catch (error) {
             console.error('❌ Error buscando usuario en Airtable:', error);
             console.error('❌ Detalles del error:', error.message);
+            
+            // Mensaje más amigable para el usuario
+            let userFriendlyMessage = error.message;
+            if (error.message.includes('API Key')) {
+                userFriendlyMessage = 'Error de configuración: La API Key de Airtable no está configurada. Contacta al administrador.';
+            }
+            
             return {
                 success: false,
-                error: error.message
+                error: userFriendlyMessage
             };
         }
     }
