@@ -6,7 +6,89 @@ class AirtableService {
         this.apiBase = 'https://api.airtable.com/v0';
         this.tableName = 'Users'; // Nombre de la tabla en Airtable
         
+        // Configuración de rate limiting
+        this.rateLimitDelay = 30000; // 30 segundos inicial (como sugiere Airtable)
+        this.maxRetries = 5; // Máximo de reintentos
+        
         console.log('🗄️ AirtableService inicializado');
+    }
+    
+    /**
+     * Maneja rate limiting con exponential backoff mejorado
+     * @param {Function} requestFn - Función que ejecuta la petición
+     * @param {Object} options - Opciones de retry
+     * @returns {Promise} Resultado de la petición
+     */
+    async handleRateLimit(requestFn, options = {}) {
+        const {
+            maxRetries = this.maxRetries,
+            initialDelay = this.rateLimitDelay,
+            maxDelay = 300000 // 5 minutos máximo
+        } = options;
+        
+        let retries = maxRetries;
+        let delay = initialDelay;
+        let lastError = null;
+        
+        while (retries > 0) {
+            try {
+                const response = await requestFn();
+                
+                // Si es 429 (rate limit), esperar y reintentar
+                if (response.status === 429) {
+                    const retryAfter = response.headers.get('Retry-After');
+                    const waitTime = retryAfter 
+                        ? Math.min(parseInt(retryAfter) * 1000, maxDelay)
+                        : Math.min(delay, maxDelay);
+                    
+                    console.warn(`⏳ Rate limit (429) alcanzado. Esperando ${Math.round(waitTime/1000)}s antes de reintentar... (${maxRetries - retries + 1}/${maxRetries} intento)`);
+                    
+                    // Mostrar progreso visual
+                    if (window.dashboard) {
+                        window.dashboard.showNotification(
+                            `Rate limit alcanzado. Esperando ${Math.round(waitTime/1000)}s...`, 
+                            'warning'
+                        );
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    
+                    // Exponential backoff: duplicar el tiempo de espera
+                    delay = Math.min(delay * 2, maxDelay);
+                    retries--;
+                    continue;
+                }
+                
+                // Si es otro error, lanzarlo
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error?.message || `Error ${response.status}: ${response.statusText}`);
+                }
+                
+                // Si llegamos aquí, la respuesta es exitosa
+                return response;
+                
+            } catch (error) {
+                lastError = error;
+                
+                // Si es un error de rate limit pero no viene del response, también reintentar
+                if (error.message.includes('429') || error.message.includes('rate limit') || error.message.includes('Too Many Requests')) {
+                    const waitTime = Math.min(delay, maxDelay);
+                    console.warn(`⏳ Error de rate limit detectado. Esperando ${Math.round(waitTime/1000)}s... (${maxRetries - retries + 1}/${maxRetries} intento)`);
+                    
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    delay = Math.min(delay * 2, maxDelay);
+                    retries--;
+                    continue;
+                }
+                
+                // Si no es rate limit, lanzar el error inmediatamente
+                throw error;
+            }
+        }
+        
+        // Si llegamos aquí, se agotaron los reintentos
+        throw new Error(`Rate limit: Se agotaron los ${maxRetries} reintentos. ${lastError?.message || ''}`);
     }
 
     // ===== CONFIGURACIÓN =====
@@ -94,19 +176,13 @@ class AirtableService {
         try {
             console.log('🔍 Buscando usuario por email:', email);
             
-            // Verificar que la API key esté configurada
-            if (!this.apiKey) {
-                const errorMsg = 'API Key de Airtable no configurada. Verifica que AIRTABLE_API_KEY esté en las variables de entorno de Vercel.';
-                console.error('❌', errorMsg);
-                throw new Error(errorMsg);
-            }
-            
             // Usar filterByFormula para buscar por email
             // Nota: El campo en tu Airtable se llama 'email' (minúscula)
             const formula = encodeURIComponent(`{email} = '${email}'`);
             const url = `${this.apiBase}/${this.baseId}/${this.tableName}?filterByFormula=${formula}`;
             
             console.log('📡 URL de Airtable:', url);
+            console.log('🔑 Headers:', this.getHeaders());
             
             const response = await fetch(url, {
                 method: 'GET',
@@ -116,24 +192,9 @@ class AirtableService {
             console.log('📡 Response status:', response.status);
 
             if (!response.ok) {
-                let errorMessage = 'Error buscando usuario en Airtable';
-                
-                try {
-                    const error = await response.json();
-                    console.error('❌ Error de Airtable:', error);
-                    
-                    if (response.status === 401) {
-                        errorMessage = 'API Key de Airtable inválida. Verifica la configuración en Vercel.';
-                    } else if (response.status === 404) {
-                        errorMessage = 'Tabla Users no encontrada en Airtable. Verifica la configuración.';
-                    } else {
-                        errorMessage = error.error?.message || `Error ${response.status}: ${error.error?.type || 'Error desconocido'}`;
-                    }
-                } catch (parseError) {
-                    errorMessage = `Error ${response.status}: No se pudo obtener detalles del error`;
-                }
-                
-                throw new Error(errorMessage);
+                const error = await response.json();
+                console.error('❌ Error de Airtable:', error);
+                throw new Error(error.error?.message || 'Error buscando usuario en Airtable');
             }
 
             const data = await response.json();
@@ -151,23 +212,16 @@ class AirtableService {
                 console.log('📊 Registros recibidos:', data.records?.length || 0);
                 return {
                     success: false,
-                    error: 'Usuario no encontrado. Verifica que el email sea correcto y que el usuario exista en Airtable.'
+                    error: 'Usuario no encontrado'
                 };
             }
 
         } catch (error) {
             console.error('❌ Error buscando usuario en Airtable:', error);
             console.error('❌ Detalles del error:', error.message);
-            
-            // Mensaje más amigable para el usuario
-            let userFriendlyMessage = error.message;
-            if (error.message.includes('API Key')) {
-                userFriendlyMessage = 'Error de configuración: La API Key de Airtable no está configurada. Contacta al administrador.';
-            }
-            
             return {
                 success: false,
-                error: userFriendlyMessage
+                error: error.message
             };
         }
     }
@@ -552,6 +606,9 @@ class AirtableService {
 
     // ===== MÉTODOS DE PROSPECTOS =====
 
+    /**
+     * Crea un prospecto individual en Airtable
+     */
     async createProspect(prospectData) {
         try {
             console.log('📝 Creando prospecto en Airtable:', prospectData.nombre);
@@ -611,54 +668,14 @@ class AirtableService {
 
             const payload = { fields };
 
-            // Manejo de rate limiting con retry para creación
-            let response = null;
-            let retries = 3;
-            let delay = 1000; // 1 segundo inicial
-            
-            while (retries > 0) {
-                try {
-                    response = await fetch(url, {
-                        method: 'POST',
-                        headers: this.getHeaders(),
-                        body: JSON.stringify(payload)
-                    });
-
-                    // Si es 429 (rate limit), esperar y reintentar
-                    if (response.status === 429) {
-                        const retryAfter = response.headers.get('Retry-After');
-                        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay;
-                        
-                        console.warn(`⏳ Rate limit al crear prospecto. Esperando ${waitTime/1000}s antes de reintentar... (${4-retries} intento)`);
-                        await new Promise(resolve => setTimeout(resolve, waitTime));
-                        delay *= 2; // Exponential backoff
-                        retries--;
-                        continue;
-                    }
-                    
-                    // Si es otro error, lanzarlo
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error?.message || `Error creando prospecto: ${response.status}`);
-                    }
-                    
-                    // Si llegamos aquí, la respuesta es exitosa
-                    break;
-                    
-                } catch (error) {
-                    retries--;
-                    if (retries === 0) {
-                        throw error;
-                    }
-                    console.warn(`⚠️ Error al crear prospecto, reintentando... (${retries} intentos restantes)`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    delay *= 2;
-                }
-            }
-
-            if (!response || !response.ok) {
-                throw new Error('Error creando prospecto después de reintentos');
-            }
+            // Usar handleRateLimit para manejar rate limiting
+            const response = await this.handleRateLimit(async () => {
+                return await fetch(url, {
+                    method: 'POST',
+                    headers: this.getHeaders(),
+                    body: JSON.stringify(payload)
+                });
+            });
 
             const data = await response.json();
             console.log('✅ Prospecto creado en Airtable:', data.id);
@@ -670,15 +687,152 @@ class AirtableService {
 
         } catch (error) {
             console.error('❌ Error creando prospecto en Airtable:', error);
-            
-            // Si es rate limit, sugerir solución
-            if (error.message.includes('429') || error.message.includes('rate limit')) {
-                console.error('💡 Solución: Espera unos minutos antes de volver a intentar. El sistema reintentará automáticamente.');
-            }
-            
             return {
                 success: false,
                 error: error.message
+            };
+        }
+    }
+    
+    /**
+     * Crea múltiples prospectos en un solo lote (batch)
+     * Optimiza las llamadas a la API creando hasta 10 registros a la vez
+     */
+    async createProspectsBatch(prospectsData) {
+        try {
+            if (!Array.isArray(prospectsData) || prospectsData.length === 0) {
+                return {
+                    success: true,
+                    created: [],
+                    errors: [],
+                    total: 0
+                };
+            }
+            
+            console.log(`📦 Creando ${prospectsData.length} prospectos en lotes...`);
+            
+            // Obtener información del usuario/workspace una sola vez
+            let userEmail = null;
+            let workspaceId = null;
+            
+            try {
+                if (window.authService && window.authService.getCurrentUser) {
+                    const currentUser = window.authService.getCurrentUser();
+                    if (currentUser) {
+                        userEmail = currentUser.email;
+                    }
+                }
+                
+                if (window.dashboard && window.dashboard.dataService) {
+                    const workspaces = await window.dashboard.dataService.getWorkspaces();
+                    if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
+                        workspaceId = workspaces.data[0].id;
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ No se pudo obtener información de usuario/workspace:', error);
+            }
+            
+            // Airtable permite hasta 10 registros por lote
+            const BATCH_SIZE = 10;
+            const batches = [];
+            
+            // Dividir en lotes de 10
+            for (let i = 0; i < prospectsData.length; i += BATCH_SIZE) {
+                batches.push(prospectsData.slice(i, i + BATCH_SIZE));
+            }
+            
+            const created = [];
+            const errors = [];
+            
+            // Procesar cada lote
+            for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                const batch = batches[batchIndex];
+                console.log(`📦 Procesando lote ${batchIndex + 1}/${batches.length} (${batch.length} prospectos)...`);
+                
+                // Preparar records para el lote
+                const records = batch.map(prospectData => {
+                    const fields = {
+                        'nombre': prospectData.nombre || '',
+                        'chat_id': prospectData.chatId || '',
+                        'fecha_extraccion': prospectData.fechaExtraccion || new Date().toISOString()
+                    };
+                    
+                    // Agregar campos de asociación
+                    if (userEmail) fields['user_email'] = userEmail;
+                    if (workspaceId) fields['workspace_id'] = workspaceId;
+                    
+                    // Campos opcionales
+                    if (prospectData.imagenesUrls && Array.isArray(prospectData.imagenesUrls) && prospectData.imagenesUrls.length > 0) {
+                        fields['imagenes_urls'] = JSON.stringify(prospectData.imagenesUrls);
+                    }
+                    if (prospectData.documentosUrls && Array.isArray(prospectData.documentosUrls) && prospectData.documentosUrls.length > 0) {
+                        fields['documentos_urls'] = JSON.stringify(prospectData.documentosUrls);
+                    }
+                    
+                    return { fields };
+                });
+                
+                const url = `${this.apiBase}/${this.baseId}/Prospectos`;
+                const payload = { records };
+                
+                try {
+                    // Usar handleRateLimit para manejar rate limiting
+                    const response = await this.handleRateLimit(async () => {
+                        return await fetch(url, {
+                            method: 'POST',
+                            headers: this.getHeaders(),
+                            body: JSON.stringify(payload)
+                        });
+                    });
+                    
+                    const data = await response.json();
+                    
+                    // Airtable devuelve un array de records creados
+                    if (data.records) {
+                        data.records.forEach(record => {
+                            created.push(this.transformAirtableProspect(record));
+                        });
+                        console.log(`✅ Lote ${batchIndex + 1}: ${data.records.length} prospectos creados`);
+                    }
+                    
+                } catch (error) {
+                    console.error(`❌ Error en lote ${batchIndex + 1}:`, error);
+                    // Si falla un lote, guardar los errores pero continuar
+                    batch.forEach(prospect => {
+                        errors.push({
+                            prospect: prospect,
+                            error: error.message
+                        });
+                    });
+                }
+                
+                // Pequeña pausa entre lotes para evitar rate limiting
+                if (batchIndex < batches.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+            
+            console.log(`✅ Batch completado: ${created.length} creados, ${errors.length} errores`);
+            
+            return {
+                success: errors.length === 0,
+                created: created,
+                errors: errors,
+                total: prospectsData.length,
+                createdCount: created.length,
+                errorCount: errors.length
+            };
+            
+        } catch (error) {
+            console.error('❌ Error en createProspectsBatch:', error);
+            return {
+                success: false,
+                created: [],
+                errors: prospectsData.map(p => ({ prospect: p, error: error.message })),
+                total: prospectsData.length,
+                createdCount: 0,
+                errorCount: prospectsData.length
             };
         }
     }
@@ -749,6 +903,32 @@ class AirtableService {
                 params.push(`filterByFormula=${encodeURIComponent(filterFormula)}`);
             }
             
+            // OPTIMIZACIÓN: Solo solicitar los campos necesarios en lugar de todos
+            // Esto reduce el tamaño de la respuesta y mejora el rendimiento
+            const fieldsNeeded = [
+                'nombre', 'A nombre',
+                'chat_id', 'A chat_id',
+                'telefono',
+                'canal',
+                'fecha_extraccion',
+                'fecha_ultimo_mensaje',
+                'estado',
+                'imagenes_urls',
+                'documentos_urls',
+                'agente_id',
+                'notas',
+                'comentarios',
+                'campos_solicitados',
+                'user_email',
+                'workspace_id',
+                'createdTime' // Necesario para ordenar
+            ];
+            
+            // Airtable usa el parámetro "fields[]" para especificar campos
+            fieldsNeeded.forEach(field => {
+                params.push(`fields[]=${encodeURIComponent(field)}`);
+            });
+            
             if (options.maxRecords) params.push(`maxRecords=${options.maxRecords}`);
             if (options.pageSize) params.push(`pageSize=${options.pageSize}`);
             if (options.view) params.push(`view=${encodeURIComponent(options.view)}`);
@@ -757,53 +937,13 @@ class AirtableService {
                 url += '?' + params.join('&');
             }
 
-            // Manejo de rate limiting con retry
-            let response = null;
-            let retries = 3;
-            let delay = 1000; // 1 segundo inicial
-            
-            while (retries > 0) {
-                try {
-                    response = await fetch(url, {
-                        method: 'GET',
-                        headers: this.getHeaders()
-                    });
-
-                    // Si es 429 (rate limit), esperar y reintentar
-                    if (response.status === 429) {
-                        const retryAfter = response.headers.get('Retry-After');
-                        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay;
-                        
-                        console.warn(`⏳ Rate limit alcanzado. Esperando ${waitTime/1000}s antes de reintentar... (${4-retries} intento)`);
-                        await new Promise(resolve => setTimeout(resolve, waitTime));
-                        delay *= 2; // Exponential backoff
-                        retries--;
-                        continue;
-                    }
-                    
-                    // Si es otro error, lanzarlo
-                    if (!response.ok) {
-                        const error = await response.json();
-                        throw new Error(error.error?.message || `Error obteniendo prospectos: ${response.status}`);
-                    }
-                    
-                    // Si llegamos aquí, la respuesta es exitosa
-                    break;
-                    
-                } catch (error) {
-                    retries--;
-                    if (retries === 0) {
-                        throw error;
-                    }
-                    console.warn(`⚠️ Error en petición, reintentando... (${3-retries} intentos restantes)`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    delay *= 2;
-                }
-            }
-
-            if (!response || !response.ok) {
-                throw new Error('Error obteniendo prospectos después de reintentos');
-            }
+            // Usar handleRateLimit para manejar rate limiting con exponential backoff mejorado
+            const response = await this.handleRateLimit(async () => {
+                return await fetch(url, {
+                    method: 'GET',
+                    headers: this.getHeaders()
+                });
+            });
 
             const data = await response.json();
             console.log(`✅ ${data.records.length} prospectos obtenidos de Airtable${filterFormula ? ' (filtrados)' : ' (todos)'}`);
@@ -851,53 +991,42 @@ class AirtableService {
                     // Escapar comillas simples en el chatId para evitar problemas en la fórmula
                     const escapedChatId = chatId.replace(/'/g, "\\'");
                     const formula = encodeURIComponent(`{${fieldName}} = '${escapedChatId}'`);
-                    const url = `${this.apiBase}/${this.baseId}/Prospectos?filterByFormula=${formula}`;
                     
-                    // Manejo de rate limiting con retry
-                    let retries = 3;
-                    let delay = 1000;
+                    // OPTIMIZACIÓN: Solo solicitar campos necesarios
+                    const fieldsNeeded = [
+                        'nombre', 'A nombre',
+                        'chat_id', 'A chat_id',
+                        'telefono',
+                        'canal',
+                        'fecha_extraccion',
+                        'imagenes_urls',
+                        'documentos_urls',
+                        'comentarios',
+                        'campos_solicitados',
+                        'user_email',
+                        'workspace_id'
+                    ];
                     
-                    while (retries > 0) {
-                        try {
-                            response = await fetch(url, {
-                                method: 'GET',
-                                headers: this.getHeaders()
-                            });
-
-                            // Si es 429 (rate limit), esperar y reintentar
-                            if (response.status === 429) {
-                                const retryAfter = response.headers.get('Retry-After');
-                                const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay;
-                                
-                                console.warn(`⏳ Rate limit al buscar prospecto. Esperando ${waitTime/1000}s...`);
-                                await new Promise(resolve => setTimeout(resolve, waitTime));
-                                delay *= 2;
-                                retries--;
-                                continue;
-                            }
-                            
-                            if (response.ok) {
-                                data = await response.json();
-                                break;
-                            }
-                            
-                            // Si no es 429 y no es OK, lanzar error
-                            if (!response.ok) {
-                                const errorData = await response.json().catch(() => ({}));
-                                throw new Error(errorData.error?.message || `Error ${response.status}`);
-                            }
-                            
-                        } catch (error) {
-                            retries--;
-                            if (retries === 0) {
-                                throw error;
-                            }
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            delay *= 2;
-                        }
-                    }
+                    const params = [
+                        `filterByFormula=${formula}`
+                    ];
                     
-                    if (response && response.ok && data) {
+                    fieldsNeeded.forEach(field => {
+                        params.push(`fields[]=${encodeURIComponent(field)}`);
+                    });
+                    
+                    const url = `${this.apiBase}/${this.baseId}/Prospectos?${params.join('&')}`;
+                    
+                    // Usar handleRateLimit para manejar rate limiting
+                    response = await this.handleRateLimit(async () => {
+                        return await fetch(url, {
+                            method: 'GET',
+                            headers: this.getHeaders()
+                        });
+                    });
+                    
+                    if (response && response.ok) {
+                        data = await response.json();
                         if (data.records && data.records.length > 0) {
                             console.log(`✅ Prospecto encontrado usando campo "${fieldName}": ${data.records.length} resultado(s)`);
                             // Si hay múltiples resultados, tomar el primero

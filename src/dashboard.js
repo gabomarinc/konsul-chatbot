@@ -6955,41 +6955,52 @@ class ChatbotDashboard {
             if (result.success) {
                 console.log(`📊 ${result.prospects.length} prospectos encontrados, ${result.errors.length} errores en el análisis`);
                 
-                // Guardar cada prospecto en Airtable con delay para evitar rate limiting
+                // OPTIMIZACIÓN: Usar batch operations cuando hay múltiples prospectos
                 let savedCount = 0;
+                let alreadyExistsCount = 0;
+                let updatedCount = 0;
                 let errorCount = 0;
                 const saveErrors = [];
-                const delayBetweenSaves = 500; // 500ms entre cada guardado para evitar rate limiting
 
-                for (let i = 0; i < result.prospects.length; i++) {
-                    const prospectData = result.prospects[i];
-                    console.log(`💾 Guardando prospecto ${i + 1}/${result.prospects.length}: ${prospectData.nombre} (chat: ${prospectData.chatId})`);
+                if (result.prospects.length > 1) {
+                    // Si hay múltiples prospectos, usar batch
+                    console.log(`📦 Usando batch operations para ${result.prospects.length} prospectos...`);
+                    const batchResult = await window.prospectsService.saveProspectsBatch(result.prospects);
                     
-                    const saveResult = await window.prospectsService.saveProspect(prospectData);
-                    if (saveResult.success) {
-                        // Solo contar como guardado si es nuevo (no duplicado)
-                        if (!saveResult.alreadyExists) {
-                            savedCount++;
-                            console.log(`✅ Prospecto guardado: ${prospectData.nombre}`);
-                        } else {
-                            console.log(`⏭️ Prospecto ya existe, omitido: ${prospectData.nombre}`);
-                        }
-                    } else {
-                        errorCount++;
-                        const errorMsg = `Chat ${prospectData.chatId}: ${saveResult.error}`;
-                        console.error('❌ Error guardando prospecto:', errorMsg);
+                    savedCount = batchResult.savedCount || 0;
+                    alreadyExistsCount = batchResult.alreadyExistsCount || 0;
+                    updatedCount = batchResult.updatedCount || 0;
+                    errorCount = batchResult.errorCount || 0;
+                    
+                    // Convertir errores a formato de mensaje
+                    batchResult.errors.forEach(err => {
+                        const errorMsg = `Chat ${err.prospect?.chatId || 'desconocido'}: ${err.error}`;
                         saveErrors.push(errorMsg);
-                        
-                        // Si es rate limit, aumentar el delay antes del siguiente
-                        if (saveResult.error && (saveResult.error.includes('429') || saveResult.error.includes('rate limit'))) {
-                            console.warn('⏳ Rate limit detectado. Esperando 2 segundos antes de continuar...');
-                            await new Promise(resolve => setTimeout(resolve, 2000));
-                        }
-                    }
+                    });
                     
-                    // Delay entre guardados para evitar rate limiting (excepto en el último)
-                    if (i < result.prospects.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, delayBetweenSaves));
+                    console.log(`✅ Batch completado: ${savedCount} nuevos, ${alreadyExistsCount} existentes, ${updatedCount} actualizados, ${errorCount} errores`);
+                } else {
+                    // Si hay solo uno, usar método individual (más rápido para un solo registro)
+                    for (const prospectData of result.prospects) {
+                        console.log(`💾 Guardando prospecto: ${prospectData.nombre} (chat: ${prospectData.chatId})`);
+                        const saveResult = await window.prospectsService.saveProspect(prospectData);
+                        if (saveResult.success) {
+                            if (!saveResult.alreadyExists) {
+                                savedCount++;
+                                console.log(`✅ Prospecto guardado: ${prospectData.nombre}`);
+                            } else {
+                                alreadyExistsCount++;
+                                if (saveResult.wasUpdated) {
+                                    updatedCount++;
+                                }
+                                console.log(`⏭️ Prospecto ya existe: ${prospectData.nombre}`);
+                            }
+                        } else {
+                            errorCount++;
+                            const errorMsg = `Chat ${prospectData.chatId}: ${saveResult.error}`;
+                            console.error('❌ Error guardando prospecto:', errorMsg);
+                            saveErrors.push(errorMsg);
+                        }
                     }
                 }
 
@@ -7008,8 +7019,20 @@ class ChatbotDashboard {
 
                 // Mensaje final
                 let message = '';
+                const parts = [];
+                
                 if (savedCount > 0) {
-                    message = `✅ ${savedCount} prospecto${savedCount > 1 ? 's' : ''} extraído${savedCount > 1 ? 's' : ''} y guardado${savedCount > 1 ? 's' : ''}`;
+                    parts.push(`${savedCount} nuevo${savedCount > 1 ? 's' : ''}`);
+                }
+                if (updatedCount > 0) {
+                    parts.push(`${updatedCount} actualizado${updatedCount > 1 ? 's' : ''}`);
+                }
+                if (alreadyExistsCount > 0) {
+                    parts.push(`${alreadyExistsCount} ya existente${alreadyExistsCount > 1 ? 's' : ''}`);
+                }
+                
+                if (parts.length > 0) {
+                    message = `✅ ${parts.join(', ')} prospecto${parts.length > 1 ? 's' : ''}`;
                     if (errorCount > 0 || result.errors.length > 0) {
                         const totalErrors = errorCount + result.errors.length;
                         message += ` (${totalErrors} error${totalErrors > 1 ? 'es' : ''})`;
