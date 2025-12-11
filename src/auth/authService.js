@@ -54,18 +54,16 @@ class AuthService {
             
             let user, token;
             
-            if (this.useAirtable && window.airtableService) {
+            // Verificar si debemos usar Airtable (puede que se haya configurado después de init)
+            const shouldUseAirtable = this.useAirtable && window.airtableService && window.airtableService.apiKey;
+            
+            if (shouldUseAirtable) {
                 // === AUTENTICACIÓN CON AIRTABLE ===
                 console.log('🗄️ Autenticando con Airtable...');
                 console.log('📧 Email:', email);
                 console.log('🔐 Password length:', password ? password.length : 0);
                 console.log('🔑 API Key configurada:', !!window.airtableService.apiKey);
-                
-                // Verificar que Airtable esté configurado
-                if (!window.airtableService.apiKey) {
-                    console.error('❌ API Key de Airtable no configurada');
-                    throw new Error('Servicio de autenticación no configurado');
-                }
+                console.log('🔑 useAirtable:', this.useAirtable);
                 
                 // Buscar usuario en Airtable
                 const result = await window.airtableService.getUserByEmail(email);

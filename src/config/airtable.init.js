@@ -43,9 +43,18 @@
         console.log('📋 Longitud:', apiKey ? apiKey.length : 0);
         
         if (apiKey && apiKey.trim() !== '') {
-            window.authService.setAirtableApiKey(apiKey);
+            // Configurar la API key en airtableService
+            window.airtableService.setApiKey(apiKey);
+            
+            // Asegurar que authService use Airtable (puede que se haya inicializado antes)
+            if (window.authService) {
+                window.authService.useAirtable = true;
+                console.log('✅ AuthService configurado para usar Airtable');
+            }
+            
             console.log('✅ Token de Airtable configurado correctamente');
             console.log('🔑 API Key configurada en airtableService:', !!window.airtableService.apiKey);
+            console.log('🔑 useAirtable en authService:', window.authService?.useAirtable);
         } else {
             console.error('❌ AIRTABLE_API_KEY no está configurada o está vacía');
             console.error('💡 Verifica que:');
