@@ -10,6 +10,10 @@
       "destination": "/api/stripe/:path*"
     },
     {
+      "source": "/api/neon/:path*",
+      "destination": "/api/neon.js"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://api.gptmaker.ai/:path*"
     }

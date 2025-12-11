@@ -158,3 +158,4 @@ Una vez configurada la tabla en Airtable (o decidido usar solo localStorage), co
 - localStorage = Más rápido, sin configuración, solo local
 
 
+
