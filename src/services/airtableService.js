@@ -138,22 +138,14 @@ class AirtableService {
 
             const payload = { fields };
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: this.getHeaders(),
-                body: JSON.stringify(payload)
+            // Usar handleRateLimit para manejar rate limiting
+            const response = await this.handleRateLimit(async () => {
+                return await fetch(url, {
+                    method: 'POST',
+                    headers: this.getHeaders(),
+                    body: JSON.stringify(payload)
+                });
             });
-
-            if (userData.ownerRecordId) {
-                body.fields['team_owner_email'] = [userData.ownerRecordId];
-            } else if (userData.teamOwnerEmail || userData.email) {
-                body.fields['team_owner_email'] = userData.teamOwnerEmail || userData.email;
-            }
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || 'Error creando usuario en Airtable');
-            }
 
             const data = await response.json();
             console.log('✅ Usuario creado en Airtable:', data.id);
@@ -178,24 +170,48 @@ class AirtableService {
             
             // Usar filterByFormula para buscar por email
             // Nota: El campo en tu Airtable se llama 'email' (minúscula)
-            const formula = encodeURIComponent(`{email} = '${email}'`);
-            const url = `${this.apiBase}/${this.baseId}/${this.tableName}?filterByFormula=${formula}`;
+            const formula = encodeURIComponent(`{email} = '${email.replace(/'/g, "\\'")}'`);
+            
+            // OPTIMIZACIÓN: Solo solicitar campos necesarios
+            const fieldsNeeded = [
+                'email',
+                'first_name',
+                'last_name',
+                'role',
+                'status',
+                'has_paid',
+                'stripe_customer_id',
+                'token_api',
+                'empresa',
+                'profile_image',
+                'is_team_member',
+                'member_role',
+                'team_owner_email',
+                'created_at',
+                'last_login'
+            ];
+            
+            const params = [
+                `filterByFormula=${formula}`
+            ];
+            
+            fieldsNeeded.forEach(field => {
+                params.push(`fields[]=${encodeURIComponent(field)}`);
+            });
+            
+            const url = `${this.apiBase}/${this.baseId}/${this.tableName}?${params.join('&')}`;
             
             console.log('📡 URL de Airtable:', url);
-            console.log('🔑 Headers:', this.getHeaders());
             
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: this.getHeaders()
+            // Usar handleRateLimit para manejar rate limiting con exponential backoff
+            const response = await this.handleRateLimit(async () => {
+                return await fetch(url, {
+                    method: 'GET',
+                    headers: this.getHeaders()
+                });
             });
 
             console.log('📡 Response status:', response.status);
-
-            if (!response.ok) {
-                const error = await response.json();
-                console.error('❌ Error de Airtable:', error);
-                throw new Error(error.error?.message || 'Error buscando usuario en Airtable');
-            }
 
             const data = await response.json();
             console.log('📊 Datos recibidos de Airtable:', data);
@@ -232,9 +248,12 @@ class AirtableService {
             
             const url = `${this.apiBase}/${this.baseId}/${this.tableName}/${recordId}`;
             
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: this.getHeaders()
+            // Usar handleRateLimit para manejar rate limiting
+            const response = await this.handleRateLimit(async () => {
+                return await fetch(url, {
+                    method: 'GET',
+                    headers: this.getHeaders()
+                });
             });
 
             if (!response.ok) {
@@ -288,10 +307,13 @@ class AirtableService {
             
             console.log('📤 Campos que se enviarán a Airtable:', fields);
             
-            const response = await fetch(url, {
-                method: 'PATCH',
-                headers: this.getHeaders(),
-                body: JSON.stringify({ fields })
+            // Usar handleRateLimit para manejar rate limiting
+            const response = await this.handleRateLimit(async () => {
+                return await fetch(url, {
+                    method: 'PATCH',
+                    headers: this.getHeaders(),
+                    body: JSON.stringify({ fields })
+                });
             });
 
             if (!response.ok) {
@@ -322,14 +344,17 @@ class AirtableService {
             
             const url = `${this.apiBase}/${this.baseId}/${this.tableName}/${recordId}`;
             
-            const response = await fetch(url, {
-                method: 'PATCH',
-                headers: this.getHeaders(),
-                body: JSON.stringify({
-                    fields: {
-                        'password_hash': newPassword // Nota: Considerar hashear la contraseña
-                    }
-                })
+            // Usar handleRateLimit para manejar rate limiting
+            const response = await this.handleRateLimit(async () => {
+                return await fetch(url, {
+                    method: 'PATCH',
+                    headers: this.getHeaders(),
+                    body: JSON.stringify({
+                        fields: {
+                            'password_hash': newPassword // Nota: Considerar hashear la contraseña
+                        }
+                    })
+                });
             });
 
             if (!response.ok) {
@@ -354,20 +379,33 @@ class AirtableService {
         try {
             const url = `${this.apiBase}/${this.baseId}/${this.tableName}/${recordId}`;
             
-            const response = await fetch(url, {
-                method: 'PATCH',
-                headers: this.getHeaders(),
-                body: JSON.stringify({
-                    fields: {
-                        'last_login': new Date().toISOString()
-                    }
-                })
-            });
+            // Usar handleRateLimit para manejar rate limiting
+            // Nota: Este método no debe fallar si hay rate limit, solo loguear
+            try {
+                const response = await this.handleRateLimit(async () => {
+                    return await fetch(url, {
+                        method: 'PATCH',
+                        headers: this.getHeaders(),
+                        body: JSON.stringify({
+                            fields: {
+                                'last_login': new Date().toISOString()
+                            }
+                        })
+                    });
+                }, {
+                    maxRetries: 2, // Menos reintentos para operaciones no críticas
+                    initialDelay: 10000 // 10 segundos inicial para operaciones no críticas
+                });
 
-            if (!response.ok) {
-                const error = await response.json();
-                console.warn('⚠️ No se pudo actualizar last_login (puede que el campo no exista):', error);
-                // No fallar si este campo no existe
+                if (!response.ok) {
+                    const error = await response.json();
+                    console.warn('⚠️ No se pudo actualizar last_login (puede que el campo no exista):', error);
+                    // No fallar si este campo no existe
+                    return { success: true };
+                }
+            } catch (error) {
+                // Si falla por rate limit, no bloquear el login
+                console.warn('⚠️ No se pudo actualizar last_login debido a rate limit, continuando...');
                 return { success: true };
             }
 
