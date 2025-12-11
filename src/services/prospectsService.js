@@ -2,8 +2,51 @@
 class ProspectsService {
     constructor() {
         this.airtableService = window.airtableService;
+        this.neonService = window.NeonService ? new window.NeonService() : null;
         this.savingProspects = new Set(); // Para evitar condiciones de carrera
-        console.log('👥 ProspectsService inicializado');
+        
+        // Detectar qué servicio usar (Neon tiene prioridad si está configurado)
+        this.useNeon = !!this.neonService && !!process.env.NEON_DATABASE_URL;
+        
+        if (this.useNeon) {
+            console.log('👥 ProspectsService inicializado - usando Neon PostgreSQL');
+        } else {
+            console.log('👥 ProspectsService inicializado - usando Airtable');
+        }
+    }
+    
+    /**
+     * Obtiene el usuario actual de Airtable para usar como filtro
+     * Esto conecta ambas bases de datos: usuario de Airtable → prospectos en Neon
+     */
+    async getCurrentUserInfo() {
+        try {
+            let userEmail = null;
+            let workspaceId = null;
+            
+            // Obtener usuario de Airtable (siempre desde Airtable)
+            if (window.authService && window.authService.getCurrentUser) {
+                const currentUser = window.authService.getCurrentUser();
+                if (currentUser) {
+                    userEmail = currentUser.email;
+                    console.log('👤 Usuario actual obtenido de Airtable:', userEmail);
+                }
+            }
+            
+            // Obtener workspace ID
+            if (window.dashboard && window.dashboard.dataService) {
+                const workspaces = await window.dashboard.dataService.getWorkspaces();
+                if (workspaces.success && workspaces.data && workspaces.data.length > 0) {
+                    workspaceId = workspaces.data[0].id;
+                    console.log('🏢 Workspace ID obtenido:', workspaceId);
+                }
+            }
+            
+            return { userEmail, workspaceId };
+        } catch (error) {
+            console.warn('⚠️ Error obteniendo información de usuario:', error);
+            return { userEmail: null, workspaceId: null };
+        }
     }
 
     // ===== EXTRACCIÓN DE NOMBRES =====
@@ -391,13 +434,137 @@ class ProspectsService {
     // ===== GESTIÓN EN AIRTABLE =====
 
     /**
-     * Guarda o actualiza un prospecto en Airtable
+     * Guarda o actualiza un prospecto
+     * Usa Neon si está disponible, sino usa Airtable
+     * Siempre guarda el user_email y workspace_id del usuario actual (de Airtable)
      */
     async saveProspect(prospectData) {
         try {
-            if (!this.airtableService) {
-                throw new Error('AirtableService no disponible');
+            // Obtener información del usuario actual (de Airtable)
+            const userInfo = await this.getCurrentUserInfo();
+            
+            // Agregar información del usuario al prospecto
+            // Esto conecta el prospecto con el usuario de Airtable
+            if (userInfo.userEmail) {
+                prospectData.userEmail = userInfo.userEmail;
             }
+            if (userInfo.workspaceId) {
+                prospectData.workspaceId = userInfo.workspaceId;
+            }
+            
+            if (this.useNeon && this.neonService) {
+                console.log('🗄️ Guardando prospecto en Neon (asociado con usuario de Airtable)');
+                return await this.saveProspectToNeon(prospectData);
+            } else {
+                // Usar Airtable (comportamiento original)
+                if (!this.airtableService) {
+                    throw new Error('AirtableService no disponible');
+                }
+                return await this.saveProspectToAirtable(prospectData);
+            }
+        } catch (error) {
+            console.error('❌ Error guardando prospecto:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+    
+    /**
+     * Guarda prospecto en Neon
+     */
+    async saveProspectToNeon(prospectData) {
+        try {
+            // Verificar si ya existe
+            const existing = await this.neonService.getProspectByChatId(prospectData.chatId);
+            
+            if (existing.success && existing.prospect) {
+                console.log(`⏭️ Prospecto ya existe en Neon: ${prospectData.nombre}`);
+                return {
+                    success: true,
+                    prospect: existing.prospect,
+                    alreadyExists: true
+                };
+            }
+            
+            // Crear nuevo prospecto
+            const result = await this.neonService.createProspect(prospectData);
+            return result;
+        } catch (error) {
+            console.error('❌ Error guardando prospecto en Neon:', error);
+            // Fallback a Airtable si Neon falla
+            if (this.airtableService) {
+                console.log('🔄 Intentando guardar en Airtable como fallback...');
+                return await this.saveProspectToAirtable(prospectData);
+            }
+            throw error;
+        }
+    }
+    
+    /**
+     * Guarda prospecto en Airtable (método original)
+     */
+    async saveProspectToAirtable(prospectData) {
+        if (!this.airtableService) {
+            throw new Error('AirtableService no disponible');
+        }
+
+        // PROTECCIÓN CONTRA CONDICIONES DE CARRERA
+        if (this.savingProspects.has(prospectData.chatId)) {
+            console.log(`⏳ Ya se está guardando este prospecto (chat_id: ${prospectData.chatId}), esperando...`);
+            for (let i = 0; i < 3; i++) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const existingAfterWait = await this.airtableService.getProspectByChatId(prospectData.chatId);
+                if (existingAfterWait.success && existingAfterWait.prospect) {
+                    console.log(`✅ Prospecto ya fue creado por otro proceso durante la espera`);
+                    return {
+                        success: true,
+                        prospect: existingAfterWait.prospect,
+                        alreadyExists: true
+                    };
+                }
+            }
+        }
+        
+        this.savingProspects.add(prospectData.chatId);
+        
+        try {
+            // Verificar si el prospecto ya existe por chat_id ANTES de crear
+            const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
+            
+            if (existing.success && existing.prospect) {
+                console.log(`⏭️ Prospecto ya existe en Airtable: ${prospectData.nombre}`);
+                return {
+                    success: true,
+                    prospect: existing.prospect,
+                    alreadyExists: true
+                };
+            } else {
+                // Verificar si hubo un error en la búsqueda
+                if (existing.error) {
+                    console.error(`❌ Error al buscar prospecto existente: ${existing.error}. NO se creará nuevo prospecto para evitar duplicados.`);
+                    return {
+                        success: false,
+                        error: `Error al verificar duplicados: ${existing.error}`,
+                        alreadyExists: false
+                    };
+                } else {
+                    console.log(`➕ Creando nuevo prospecto (no existe en Airtable para chat_id: ${prospectData.chatId})`);
+                }
+                
+                // Crear nuevo prospecto solo si no existe
+                const result = await this.airtableService.createProspect(prospectData);
+                if (result.success) {
+                    return { ...result, alreadyExists: false };
+                } else {
+                    return result;
+                }
+            }
+        } finally {
+            this.savingProspects.delete(prospectData.chatId);
+        }
+    }
 
             // PROTECCIÓN CONTRA CONDICIONES DE CARRERA
             // Si ya se está guardando este chat_id, esperar y verificar nuevamente
@@ -503,16 +670,39 @@ class ProspectsService {
     }
 
     /**
-     * Obtiene todos los prospectos de Airtable
+     * Obtiene todos los prospectos
+     * Usa Neon si está disponible, sino usa Airtable
+     * Siempre filtra por el usuario actual (obtenido de Airtable)
      */
     async getAllProspects() {
         try {
-            if (!this.airtableService) {
-                throw new Error('AirtableService no disponible');
+            // Obtener información del usuario actual (de Airtable)
+            const userInfo = await this.getCurrentUserInfo();
+            
+            if (this.useNeon && this.neonService) {
+                console.log('🗄️ Obteniendo prospectos de Neon (filtrados por usuario de Airtable)');
+                // NeonService ya filtra automáticamente por user_email y workspace_id
+                const result = await this.neonService.getAllProspects();
+                
+                if (!result.success) {
+                    console.warn('⚠️ Error con Neon, intentando con Airtable como fallback');
+                    // Fallback a Airtable si Neon falla
+                    if (this.airtableService) {
+                        return await this.airtableService.getAllProspects();
+                    }
+                }
+                
+                return result;
+            } else {
+                // Usar Airtable (comportamiento original)
+                if (!this.airtableService) {
+                    throw new Error('AirtableService no disponible');
+                }
+                
+                console.log('🗄️ Obteniendo prospectos de Airtable');
+                const result = await this.airtableService.getAllProspects();
+                return result;
             }
-
-            const result = await this.airtableService.getAllProspects();
-            return result;
         } catch (error) {
             console.error('❌ Error obteniendo prospectos:', error);
             return {

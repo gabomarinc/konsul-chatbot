@@ -12,7 +12,13 @@ class NeonService {
         // O usar Neon HTTP (menos seguro, solo para desarrollo)
         this.apiEndpoint = process.env.NEON_API_ENDPOINT || '/api/neon';
         
-        console.log('🗄️ NeonService inicializado');
+        // Verificar si Neon está configurado
+        if (!this.connectionString) {
+            console.warn('⚠️ Neon no está configurado. Usa Airtable como fallback.');
+        } else {
+            console.log('🗄️ NeonService inicializado');
+            console.log('💡 Los prospectos se filtrarán por user_email y workspace_id del usuario de Airtable');
+        }
     }
 
     /**
