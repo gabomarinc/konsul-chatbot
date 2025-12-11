@@ -583,15 +583,53 @@ class AirtableService {
 
             const payload = { fields };
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: this.getHeaders(),
-                body: JSON.stringify(payload)
-            });
+            // Manejo de rate limiting con retry para creación
+            let response = null;
+            let retries = 3;
+            let delay = 1000; // 1 segundo inicial
+            
+            while (retries > 0) {
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: this.getHeaders(),
+                        body: JSON.stringify(payload)
+                    });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || 'Error creando prospecto en Airtable');
+                    // Si es 429 (rate limit), esperar y reintentar
+                    if (response.status === 429) {
+                        const retryAfter = response.headers.get('Retry-After');
+                        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay;
+                        
+                        console.warn(`⏳ Rate limit al crear prospecto. Esperando ${waitTime/1000}s antes de reintentar... (${4-retries} intento)`);
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        delay *= 2; // Exponential backoff
+                        retries--;
+                        continue;
+                    }
+                    
+                    // Si es otro error, lanzarlo
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error?.message || `Error creando prospecto: ${response.status}`);
+                    }
+                    
+                    // Si llegamos aquí, la respuesta es exitosa
+                    break;
+                    
+                } catch (error) {
+                    retries--;
+                    if (retries === 0) {
+                        throw error;
+                    }
+                    console.warn(`⚠️ Error al crear prospecto, reintentando... (${retries} intentos restantes)`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+            }
+
+            if (!response || !response.ok) {
+                throw new Error('Error creando prospecto después de reintentos');
             }
 
             const data = await response.json();
@@ -604,6 +642,12 @@ class AirtableService {
 
         } catch (error) {
             console.error('❌ Error creando prospecto en Airtable:', error);
+            
+            // Si es rate limit, sugerir solución
+            if (error.message.includes('429') || error.message.includes('rate limit')) {
+                console.error('💡 Solución: Espera unos minutos antes de volver a intentar. El sistema reintentará automáticamente.');
+            }
+            
             return {
                 success: false,
                 error: error.message

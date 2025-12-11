@@ -6955,13 +6955,16 @@ class ChatbotDashboard {
             if (result.success) {
                 console.log(`📊 ${result.prospects.length} prospectos encontrados, ${result.errors.length} errores en el análisis`);
                 
-                // Guardar cada prospecto en Airtable
+                // Guardar cada prospecto en Airtable con delay para evitar rate limiting
                 let savedCount = 0;
                 let errorCount = 0;
                 const saveErrors = [];
+                const delayBetweenSaves = 500; // 500ms entre cada guardado para evitar rate limiting
 
-                for (const prospectData of result.prospects) {
-                    console.log(`💾 Guardando prospecto: ${prospectData.nombre} (chat: ${prospectData.chatId})`);
+                for (let i = 0; i < result.prospects.length; i++) {
+                    const prospectData = result.prospects[i];
+                    console.log(`💾 Guardando prospecto ${i + 1}/${result.prospects.length}: ${prospectData.nombre} (chat: ${prospectData.chatId})`);
+                    
                     const saveResult = await window.prospectsService.saveProspect(prospectData);
                     if (saveResult.success) {
                         // Solo contar como guardado si es nuevo (no duplicado)
@@ -6976,6 +6979,17 @@ class ChatbotDashboard {
                         const errorMsg = `Chat ${prospectData.chatId}: ${saveResult.error}`;
                         console.error('❌ Error guardando prospecto:', errorMsg);
                         saveErrors.push(errorMsg);
+                        
+                        // Si es rate limit, aumentar el delay antes del siguiente
+                        if (saveResult.error && (saveResult.error.includes('429') || saveResult.error.includes('rate limit'))) {
+                            console.warn('⏳ Rate limit detectado. Esperando 2 segundos antes de continuar...');
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                        }
+                    }
+                    
+                    // Delay entre guardados para evitar rate limiting (excepto en el último)
+                    if (i < result.prospects.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delayBetweenSaves));
                     }
                 }
 
