@@ -72,12 +72,16 @@ class AuthService {
                 
                 if (!result.success) {
                     console.error('❌ Error en búsqueda de usuario:', result.error);
+                    // Si es error de API key, dar mensaje más claro
+                    if (result.error && result.error.includes('API Key')) {
+                        throw new Error('Error de configuración: La API Key de Airtable no está configurada correctamente. Contacta al administrador.');
+                    }
                     throw new Error(result.error || 'Error de conexión con el servidor');
                 }
                 
                 if (!result.user) {
                     console.error('❌ Usuario no encontrado en Airtable');
-                    throw new Error('Usuario no encontrado');
+                    throw new Error('Usuario no encontrado. Verifica que el email sea correcto.');
                 }
                 
                 user = result.user;
