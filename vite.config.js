@@ -7,6 +7,19 @@ export default defineConfig({
     open: true,
     host: true,
     proxy: {
+      // Rutas de Neon se manejan localmente (no hacer proxy)
+      '/api/neon': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // Rutas de Stripe se manejan localmente (no hacer proxy)
+      '/api/stripe': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // Otras rutas de API van a GPTMaker
       '/api': {
         target: 'https://api.gptmaker.ai',
         changeOrigin: true,

@@ -11,7 +11,7 @@
     },
     {
       "source": "/api/neon/:path*",
-      "destination": "/api/neon.js"
+      "destination": "/api/neon/:path*"
     },
     {
       "source": "/api/:path*",

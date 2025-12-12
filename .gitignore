@@ -89,6 +89,7 @@ temp/
 .tern-port
 
 # Airtable config files (sensitive data)
+src/config/airtable.init.js
 
 # Stripe config files (sensitive data)
 src/config/stripe.config.js
@@ -96,7 +97,9 @@ stripe.config.js
 
 # Development config files (sensitive data)
 src/config/dev.config.js
-# Nota: airtable.init.js ya no está en .gitignore porque ahora lee de variables de entorno
+
+# Neon Database (sensitive - usar variables de entorno)
+# No subir archivos con credenciales de Neon
 
 # Backend files (optional - remove if you want to version control them)
 backend-example.js

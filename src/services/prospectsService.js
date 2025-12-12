@@ -1,7 +1,7 @@
 // Servicio de Gestión de Prospectos
 class ProspectsService {
     constructor() {
-        this.airtableService = window.airtableService;
+        this.neonService = window.neonService;
         this.savingProspects = new Set(); // Para evitar condiciones de carrera
         console.log('👥 ProspectsService inicializado');
     }
@@ -395,8 +395,8 @@ class ProspectsService {
      */
     async saveProspect(prospectData) {
         try {
-            if (!this.airtableService) {
-                throw new Error('AirtableService no disponible');
+            if (!this.neonService) {
+                throw new Error('NeonService no disponible');
             }
 
             // PROTECCIÓN CONTRA CONDICIONES DE CARRERA
@@ -406,7 +406,7 @@ class ProspectsService {
                 // Esperar y verificar nuevamente hasta 3 veces
                 for (let i = 0; i < 3; i++) {
                     await new Promise(resolve => setTimeout(resolve, 500));
-                    const existingAfterWait = await this.airtableService.getProspectByChatId(prospectData.chatId);
+                    const existingAfterWait = await this.neonService.getProspectByChatId(prospectData.chatId);
                     if (existingAfterWait.success && existingAfterWait.prospect) {
                         console.log(`✅ Prospecto ya fue creado por otro proceso durante la espera`);
                         return {
@@ -424,7 +424,7 @@ class ProspectsService {
             try {
                 // Verificar si el prospecto ya existe por chat_id ANTES de crear
                 console.log(`🔍 Verificando si prospecto existe para chat_id: ${prospectData.chatId}`);
-                const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
+                const existing = await this.neonService.getProspectByChatId(prospectData.chatId);
                 
                 if (existing.success && existing.prospect) {
                     // Prospecto ya existe - Actualizar con imágenes/documentos si no los tiene o si hay nuevos
@@ -441,7 +441,7 @@ class ProspectsService {
                         console.log(`   - Imágenes nuevas: ${hasNewImages ? prospectData.imagenesUrls.length : 0}, existentes: ${existingHasImages ? existing.prospect.imagenesUrls.length : 0}`);
                         console.log(`   - Documentos nuevos: ${hasNewDocuments ? prospectData.documentosUrls.length : 0}, existentes: ${existingHasDocuments ? existing.prospect.documentosUrls.length : 0}`);
                         
-                        const updateResult = await this.airtableService.updateProspect(existing.prospect.id, {
+                        const updateResult = await this.neonService.updateProspect(existing.prospect.id, {
                             imagenesUrls: prospectData.imagenesUrls,
                             documentosUrls: prospectData.documentosUrls
                         });
@@ -480,7 +480,7 @@ class ProspectsService {
                     }
                     
                     // Crear nuevo prospecto solo si no existe
-                    const result = await this.airtableService.createProspect(prospectData);
+                    const result = await this.neonService.createProspect(prospectData);
                     if (result.success) {
                         return { ...result, alreadyExists: false };
                     } else {
@@ -507,11 +507,11 @@ class ProspectsService {
      */
     async getAllProspects() {
         try {
-            if (!this.airtableService) {
-                throw new Error('AirtableService no disponible');
+            if (!this.neonService) {
+                throw new Error('NeonService no disponible');
             }
 
-            const result = await this.airtableService.getAllProspects();
+            const result = await this.neonService.getAllProspects();
             return result;
         } catch (error) {
             console.error('❌ Error obteniendo prospectos:', error);
@@ -584,8 +584,8 @@ class ProspectsService {
      */
     async saveProspectsBatch(prospectsData) {
         try {
-            if (!this.airtableService) {
-                throw new Error('AirtableService no disponible');
+            if (!this.neonService) {
+                throw new Error('NeonService no disponible');
             }
             
             if (!Array.isArray(prospectsData) || prospectsData.length === 0) {
@@ -612,7 +612,7 @@ class ProspectsService {
             // pero agrupamos las creaciones después
             for (const prospectData of prospectsData) {
                 try {
-                    const existing = await this.airtableService.getProspectByChatId(prospectData.chatId);
+                    const existing = await this.neonService.getProspectByChatId(prospectData.chatId);
                     
                     if (existing.success && existing.prospect) {
                         existingProspects.push({
@@ -643,7 +643,7 @@ class ProspectsService {
             let batchResult = { created: [], errors: [] };
             if (newProspects.length > 0) {
                 console.log(`📦 Creando ${newProspects.length} prospectos nuevos en batch...`);
-                batchResult = await this.airtableService.createProspectsBatch(newProspects);
+                batchResult = await this.neonService.createProspectsBatch(newProspects);
             }
             
             // Paso 3: Actualizar prospectos existentes si tienen nuevas imágenes/documentos

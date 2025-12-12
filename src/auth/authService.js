@@ -3,24 +3,24 @@ class AuthService {
         this.apiBase = '/api/auth';
         this.currentUser = null;
         this.token = null;
-        this.useAirtable = true; // Flag para usar Airtable o datos mock
+        this.useNeon = true; // Flag para usar Neon o datos mock
         this.init();
     }
 
     init() {
         console.log('🔧 Inicializando AuthService...');
         
-        // Determinar modo de operación (Airtable vs Mock) ANTES de validar
-        // Verificar si AirtableService está disponible
-        if (this.useAirtable && !window.airtableService) {
-            console.warn('⚠️ AirtableService no está disponible, usando datos mock');
-            this.useAirtable = false;
+        // Determinar modo de operación (Neon vs Mock) ANTES de validar
+        // Verificar si NeonService está disponible
+        if (this.useNeon && !window.neonService) {
+            console.warn('⚠️ NeonService no está disponible, usando datos mock');
+            this.useNeon = false;
         }
         
         // Forzar uso de datos mock para desarrollo
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             console.log('🏠 Modo desarrollo detectado, usando datos mock');
-            this.useAirtable = false;
+            this.useNeon = false;
         }
 
         // Cargar datos de autenticación desde localStorage
@@ -38,12 +38,10 @@ class AuthService {
         console.log('✅ AuthService inicializado');
     }
 
+    // Método mantenido por compatibilidad, pero ya no es necesario con Neon
     setAirtableApiKey(apiKey) {
-        if (window.airtableService) {
-            window.airtableService.setApiKey(apiKey);
-            this.useAirtable = true;
-            console.log('✅ Airtable configurado para autenticación');
-        }
+        console.warn('⚠️ setAirtableApiKey está deprecado. Usando Neon directamente.');
+        // No hacer nada, Neon no requiere API key en el frontend
     }
 
     // ===== MÉTODOS DE AUTENTICACIÓN =====
@@ -54,34 +52,25 @@ class AuthService {
             
             let user, token;
             
-            // Verificar si debemos usar Airtable (puede que se haya configurado después de init)
-            const shouldUseAirtable = this.useAirtable && window.airtableService && window.airtableService.apiKey;
-            
-            if (shouldUseAirtable) {
-                // === AUTENTICACIÓN CON AIRTABLE ===
-                console.log('🗄️ Autenticando con Airtable...');
+            if (this.useNeon && window.neonService) {
+                // === AUTENTICACIÓN CON NEON ===
+                console.log('🗄️ Autenticando con Neon...');
                 console.log('📧 Email:', email);
                 console.log('🔐 Password length:', password ? password.length : 0);
-                console.log('🔑 API Key configurada:', !!window.airtableService.apiKey);
-                console.log('🔑 useAirtable:', this.useAirtable);
                 
-                // Buscar usuario en Airtable
-                const result = await window.airtableService.getUserByEmail(email);
+                // Buscar usuario en Neon
+                const result = await window.neonService.getUserByEmail(email);
                 
                 console.log('📊 Resultado de búsqueda:', result);
                 
                 if (!result.success) {
                     console.error('❌ Error en búsqueda de usuario:', result.error);
-                    // Si es error de API key, dar mensaje más claro
-                    if (result.error && result.error.includes('API Key')) {
-                        throw new Error('Error de configuración: La API Key de Airtable no está configurada correctamente. Contacta al administrador.');
-                    }
                     throw new Error(result.error || 'Error de conexión con el servidor');
                 }
                 
                 if (!result.user) {
-                    console.error('❌ Usuario no encontrado en Airtable');
-                    throw new Error('Usuario no encontrado. Verifica que el email sea correcto.');
+                    console.error('❌ Usuario no encontrado en Neon');
+                    throw new Error('Usuario no encontrado');
                 }
                 
                 user = result.user;
@@ -94,7 +83,7 @@ class AuthService {
                 });
                 
                 // Verificar contraseña
-                const passwordMatch = window.airtableService.verifyPassword(user.password, password);
+                const passwordMatch = window.neonService.verifyPassword(user.password, password);
                 console.log('🔐 Verificación de contraseña:', passwordMatch ? 'CORRECTA ✓' : 'INCORRECTA ✗');
                 
                 if (!passwordMatch) {
@@ -102,10 +91,10 @@ class AuthService {
                     throw new Error('Contraseña incorrecta');
                 }
                 
-                // Actualizar última sesión en Airtable
-                await window.airtableService.updateLastLogin(user.id);
+                // Actualizar última sesión en Neon
+                await window.neonService.updateLastLogin(user.id);
                 
-                // Generar token (usar el ID de Airtable)
+                // Generar token (usar el ID de Neon)
                 token = this.generateToken(user);
                 
             } else {
@@ -230,34 +219,34 @@ class AuthService {
         try {
             console.log('🔐 Cambiando contraseña...');
             
-            if (this.useAirtable && window.airtableService && this.currentUser.email) {
-                // === CAMBIAR CONTRASEÑA EN AIRTABLE ===
-                console.log('🗄️ Cambiando contraseña en Airtable...');
+            if (this.useNeon && window.neonService && this.currentUser.email) {
+                // === CAMBIAR CONTRASEÑA EN NEON ===
+                console.log('🗄️ Cambiando contraseña en Neon...');
                 console.log('📧 Email del usuario:', this.currentUser.email);
                 
                 // Buscar usuario por email
-                const userResult = await window.airtableService.getUserByEmail(this.currentUser.email);
+                const userResult = await window.neonService.getUserByEmail(this.currentUser.email);
                 
                 if (!userResult.success || !userResult.user) {
-                    throw new Error('No se pudo encontrar el usuario en Airtable');
+                    throw new Error('No se pudo encontrar el usuario en Neon');
                 }
                 
                 const userId = userResult.user.id;
                 console.log('🆔 ID encontrado:', userId);
                 
                 // Verificar contraseña actual
-                if (!window.airtableService.verifyPassword(userResult.user.password, currentPassword)) {
+                if (!window.neonService.verifyPassword(userResult.user.password, currentPassword)) {
                     throw new Error('Contraseña actual incorrecta');
                 }
                 
                 // Actualizar la contraseña
-                const result = await window.airtableService.updatePassword(userId, newPassword);
+                const result = await window.neonService.updatePassword(userId, newPassword);
                 
                 if (!result.success) {
                     throw new Error(result.error || 'Error al cambiar contraseña');
                 }
                 
-                console.log('✅ Contraseña cambiada en Airtable');
+                console.log('✅ Contraseña cambiada en Neon');
                 return { success: true };
                 
             } else {
@@ -298,9 +287,9 @@ class AuthService {
             console.log('👤 Actualizando perfil...');
             console.log('📊 Datos del perfil a actualizar:', profileData);
             
-            if (this.useAirtable && window.airtableService) {
-                // === ACTUALIZAR EN AIRTABLE ===
-                console.log('🗄️ Actualizando perfil en Airtable...');
+            if (this.useNeon && window.neonService) {
+                // === ACTUALIZAR EN NEON ===
+                console.log('🗄️ Actualizando perfil en Neon...');
                 
                 // Obtener email del profileData (que viene del formulario)
                 const userEmail = profileData.email;
@@ -312,30 +301,30 @@ class AuthService {
                 console.log('📧 Email del usuario:', userEmail);
                 
                 // Buscar usuario por email
-                const userResult = await window.airtableService.getUserByEmail(userEmail);
+                const userResult = await window.neonService.getUserByEmail(userEmail);
                 
                 if (!userResult.success || !userResult.user) {
-                    throw new Error('No se pudo encontrar el usuario en Airtable');
+                    throw new Error('No se pudo encontrar el usuario en Neon');
                 }
                 
                 const userId = userResult.user.id;
                 console.log('🆔 ID encontrado:', userId);
                 
                 // Actualizar usuario con el ID encontrado
-                const result = await window.airtableService.updateUser(userId, profileData);
+                const result = await window.neonService.updateUser(userId, profileData);
                 
                 if (!result.success) {
                     throw new Error(result.error || 'Error al actualizar perfil');
                 }
                 
-                // Actualizar datos locales con los datos de Airtable
+                // Actualizar datos locales con los datos de Neon
                 const updatedUser = { ...result.user };
                 delete updatedUser.password;
                 
                 this.currentUser = updatedUser;
                 this.saveAuthData();
                 
-                console.log('✅ Perfil actualizado en Airtable');
+                console.log('✅ Perfil actualizado en Neon');
                 console.log('👤 Usuario actualizado en authService:', this.currentUser);
                 return { success: true, user: this.currentUser };
                 
@@ -409,12 +398,12 @@ class AuthService {
         try {
             if (!this.token) return false;
             // En modo mock no validamos contra la API, asumimos válido si no ha expirado
-            if (!this.useAirtable) {
+            if (!this.useNeon) {
                 return true;
             }
 
             // NO validar contra endpoint que probablemente no existe
-            // En modo Airtable, si hay token y usuario en localStorage, asumimos válido
+            // En modo Neon, si hay token y usuario en localStorage, asumimos válido
             // La validación real se hará cuando se hagan peticiones a la API
             if (this.currentUser && this.token) {
                 console.log('✅ Token y usuario presentes, asumiendo válido');
